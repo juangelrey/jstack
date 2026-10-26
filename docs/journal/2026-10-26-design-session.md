@@ -32,3 +32,10 @@ Read Addy Osmani's "Software Factories, Light and Dark", then grilled the design
 - Zoomed out to define the factory flow first: Intent → Shape → Make → Prove → Ship → Learn (ADR-0007).
 - Phase names replace the earlier loop names: intake + plan are part of Shape, build is Make, verify + review are Prove, merge is Ship. The names above reflect the earlier draft.
 - Skipped the manual walkthrough and the init milestone; went straight to designing the factory lifecycle.
+
+## Update: phases defined
+- Researched where "ship" ends for Osmani, Matt Pocock, Lauren Tan, Theo and Rob Shocks. Tool authors (Matt, Lauren) stop at merge; whole-factory views (Osmani, Rob, Theo) go to running in production with rollback.
+- Ship ends at deployed to production. Post-deploy confirmation and rollback wait until the target has feature flags.
+- Make renamed to Implement. Prove gains an independent verifier (from Lauren Tan's pstack) and a security sub-skill; Implement gains a refactor sub-skill.
+- Four human gates: intent, task list, plan, merge. Every gate runs checks; a human is added on top, never instead.
+- Lesson: Avast WebShield blocked api.anthropic.com mid-run and killed four research subagents. Fixed with an exception.
