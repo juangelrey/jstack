@@ -20,11 +20,45 @@ _Avoid_: Settings, manifest
 Everything around a loop that bounds it: sandbox, allowed tools, inputs, limits, and the conditions that define done.
 _Avoid_: Wrapper, runtime
 
+## The flow
+
+**Phase**:
+One of the six parts of the factory cycle: Intent, Shape, Make, Prove, Ship, Learn.
+_Avoid_: Stage, step
+
+**Intent**:
+What a human wants the target repo to gain, stated before anything is shaped.
+_Avoid_: Idea, request
+
+**Shape**:
+The phase that turns an intent into a spec and splits it into tasks.
+_Avoid_: Planning, grooming
+
+**Make**:
+The phase that produces the change for one task.
+_Avoid_: Build, implement
+
+**Prove**:
+The phase that establishes whether a task's change is right.
+_Avoid_: Test, verify, QA
+
+**Ship**:
+The phase where an approved change enters the target repo.
+_Avoid_: Deploy, release, merge
+
+**Learn**:
+The phase that turns what happened after shipping into new intent.
+_Avoid_: Monitoring, feedback
+
 ## Work
 
 **Spec**:
 A description of a desired outcome, agreed with the human, from which tasks are cut.
 _Avoid_: PRD, requirements, feature request
+
+**Task**:
+One piece of a spec that moves through Make, Prove and Ship on its own.
+_Avoid_: Ticket, slice, story, sub-issue
 
 **Plan**:
 A short, human-approvable description of how one task will be built: goal, files, tests first, numbered steps, risks, out of scope.

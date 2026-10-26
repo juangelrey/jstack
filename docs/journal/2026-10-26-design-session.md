@@ -27,3 +27,8 @@ Read Addy Osmani's "Software Factories, Light and Dark", then grilled the design
 
 ## Open
 - Glossary terms deferred until the loops are shaped: Loop/Step, Task, Check/Gate/Approval, Review vs Approval, Blocked, what happens when review fails.
+
+## Update: flow and naming
+- Zoomed out to define the factory flow first: Intent → Shape → Make → Prove → Ship → Learn (ADR-0007).
+- Phase names replace the earlier loop names: intake + plan are part of Shape, build is Make, verify + review are Prove, merge is Ship. The names above reflect the earlier draft.
+- Skipped the manual walkthrough and the init milestone; went straight to designing the factory lifecycle.

@@ -1,0 +1,3 @@
+# The factory flow: Intent → Shape → Make → Prove → Ship → Learn
+
+The factory is one cycle of six phases. jstack owns Shape, Make, Prove and Ship. Intent comes from the human, and in v1 Learn is done by hand. Humans sit at three points: they give Intent, approve what will be built (between Shape and Make), and approve what ships. Make and Prove belong to machines. One intent is shaped once into a spec, then split into tasks, and each task moves through Make → Prove → Ship on its own. Machines retry within a phase; only a human sends work back across a gate (for example from Make back to Shape).
