@@ -20,15 +20,82 @@ _Avoid_: Settings, manifest
 Everything around a loop that bounds it: sandbox, allowed tools, inputs, limits, and the conditions that define done.
 _Avoid_: Wrapper, runtime
 
+## The flow
+
+**Phase**:
+One of the six parts of the factory cycle: Intent, Shape, Implement, Prove, Ship, Learn.
+_Avoid_: Stage, step
+
+**Intent**:
+A confirmed statement of what a human wants the target repo to gain, reached by interviewing them until both sides share an understanding.
+_Avoid_: Idea, request
+
+**Shape**:
+The phase that turns an intent into a spec and decomposes it into tasks.
+_Avoid_: Planning, grooming
+
+**Implement**:
+The phase that produces the change for one task, test-first, until its own checks pass.
+_Avoid_: Make, build, code
+
+**Prove**:
+The phase that establishes, independently of the author, whether a task's change is right.
+_Avoid_: Test, verify, QA
+
+**Ship**:
+The phase where an approved change lands on the default branch and is deployed to production.
+_Avoid_: Release, merge, done
+
+**Learn**:
+The phase that turns what happened after shipping into new intent.
+_Avoid_: Monitoring, feedback
+
 ## Work
 
 **Spec**:
 A description of a desired outcome, agreed with the human, from which tasks are cut.
 _Avoid_: PRD, requirements, feature request
 
+**Task**:
+A vertical slice of a spec that delivers working, testable functionality and moves through Implement, Prove and Ship on its own.
+_Avoid_: Ticket, slice, story, sub-issue
+
 **Plan**:
-A short, human-approvable description of how one task will be built: goal, files, tests first, numbered steps, risks, out of scope.
+A short, human-approvable description of how one task will be implemented: goal, files, tests first, numbered steps, risks, out of scope.
 _Avoid_: Design, approach
+
+## Gates
+
+**Gate**:
+A point a task cannot pass until it clears. Every gate runs checks, and a lit gate also needs approval.
+_Avoid_: Checkpoint, stage
+
+**Check**:
+A verification run by a machine whose result does not depend on who wrote the change.
+_Avoid_: Test, validation
+
+**Approval**:
+A human clearing a gate.
+_Avoid_: Sign-off, review
+
+**Review**:
+An agent's judgment of a change against the spec and the standards, posted on the PR. Never implies a human read it.
+_Avoid_: Approval, code review
+
+**Verifier**:
+An agent that did not write the change and runs it the way a user would, giving a verdict that expires when the change does.
+_Avoid_: Tester, QA
+
+**Landed**:
+A task whose change is merged to the default branch but not yet deployed.
+
+**Deployed**:
+A task whose change is running in production. The end of Ship.
+_Avoid_: Shipped, released, live
+
+**Blocked**:
+A task a machine cannot move forward, waiting for a human to decide what happens next.
+_Avoid_: Stuck, failed
 
 ## Autonomy
 
