@@ -8,67 +8,49 @@ model: haiku
 
 # Ship
 
-Land a proven PR and see it deployed. Read `reference/contract.md` in the jstack root (two directories above this skill's base directory) first. Inputs are GitHub artifacts only, never chat memory. jstack uses the target's CI/CD and never owns it.
+Land a proven PR and see it deployed, through the target's own CI/CD. Read `<jstack root>/reference/contract.md` and `<jstack root>/reference/merging.md` first (`<jstack root>` is two directories above this skill's base directory).
 
 The task is: $ARGUMENTS
 
 ## 1. Route
 
-Read the task issue (`gh issue view <task> --json labels,body,comments`) and `.jstack/config.yml` (`ship.deploy_workflow`).
-
-- `jstack:proving`: go to step 2.
-- `jstack:landed`: the PR is already merged. Go to step 5.
-- Any other state: stop and say which phase the task needs instead.
-
-Done when you know which path applies.
+`config.mjs` and `github.mjs state --task <task>`: `proving` → 2, `landed` → 5, anything else: say which phase it needs.
 
 ## 2. Verify the PR
 
-Find the task's PR as the contract describes. Stop and send the task back to `/jstack:prove` if any of these fail:
+With `github.mjs pr --task <task>` and `github.mjs verdict --pr <pr> --task <task>`, all must hold, or the task goes back to `/jstack:prove`:
 
-- The newest `jstack:verdict` comment has `result=PASS`.
-- Its `sha` equals the current PR head SHA (`headRefOid`), compared in full.
-- Required GitHub checks are green (`gh pr checks <pr> --required`). A repo with no required checks passes this condition.
+- the verdict is PASS and its `sha` equals the head in full: the **proven SHA**
+- the PR is open, not a draft, mergeable (`gh pr view <pr> --json state,isDraft,mergeable`)
+- no GitHub check failing or pending (`gh pr checks <pr>`)
 
-Done when all three hold. Otherwise say which failed and stop.
+Done when all hold.
 
 ## 3. Merge gate
 
-Show the human, verbatim from the PR: Summary, Evidence, Merge danger, and the verdict table. Ask for an explicit "merge".
+Show the human, verbatim: Summary, Evidence, Merge danger, the verdict table, and Human verification when `verify=human`. Say so if the PR ran no GitHub checks.
 
-Done only when the human replies "merge" in chat. Anything else, including "looks good", is not the gate: ask again or stop.
+Done only when the human replies "merge". Anything else, "looks good" included, means ask again or stop.
 
 ## 4. Merge
 
-```sh
-gh pr merge <pr> --squash --delete-branch
-gh issue edit <task> --remove-label jstack:proving --add-label jstack:landed
-```
-
-Then:
-
-1. Remove the worktree if present: `git worktree remove ../<repo>-jstack-<task>` (add `--force` only if the only changes are build artifacts).
-2. Tick the task's checkbox in the spec issue body (`- [ ] #<task>` to `- [x] #<task>`) with `gh issue edit <spec> --body-file`. The spec number is in the task's `jstack:task spec=#N` marker.
-3. Get the merge commit: `gh pr view <pr> --json mergeCommit --jq .mergeCommit.oid`.
-
-Done when the PR is merged, the label is `jstack:landed`, and the checkbox is ticked.
+1. Merge per merging.md, pinned to the proven SHA.
+2. Move `proving → landed`.
+3. Tick `- [x] #<task>` in the spec body (`task.spec` from `state`) with `gh issue edit <spec> --body-file`.
 
 ## 5. Deploy watch
 
-No `ship.deploy_workflow`: leave `jstack:landed` and tell the human plainly: landed, not deployed, and jstack is not tracking a deploy. Stop.
+Merge commit: `github.mjs pr --task <task> --state merged`, then `gh pr view <pr> --json mergeCommit --jq .mergeCommit.oid`.
 
-Otherwise, with `<sha>` the merge commit on the default branch:
+**No `ship.deploy_workflow`**: comment that it landed in `<merge commit>` and the deploy is untracked, close the task (`--reason completed`), keep `landed`, tell the human. Go to 6.
 
-1. Find the run: `gh run list --workflow "<deploy_workflow>" --commit <sha> --json databaseId,status,conclusion`. If none, wait and retry for up to about 5 minutes.
-2. Watch it: `gh run watch <id> --exit-status`.
-3. Success: `gh issue edit <task> --remove-label jstack:landed --add-label jstack:deployed`, then `gh issue close <task>`.
-4. Run failed, or none appeared in time: `gh issue edit <task> --remove-label jstack:landed --add-label jstack:blocked`, and post the contract's blocked comment (`phase=ship`) with the run URL, what you tried, and the decision the human needs to make (fix forward, revert, or rerun).
-5. If the PR carries a `jstack:automerge` comment and the run failed, also open the contract's revert PR: branch `jstack/<task>-revert` from the default branch, `git revert --no-edit <merge commit>`, push, `gh pr create` with the revert marker. Name it in the blocked comment as the ready-made revert option. Never merge it yourself.
+**Otherwise**: `node <jstack root>/scripts/github.mjs deploy --workflow "<deploy_workflow>" --sha <merge commit> --timeout 540`, repeated while `pending`, six runs at most.
 
-Done when the task is `jstack:deployed` and closed, or `jstack:blocked` with the comment posted.
+- `success`: move `landed → deployed`, close the task (`--reason completed`). Go to 6.
+- anything else: block with `phase=ship` and the run URL, offering: rerun the deploy, then set `jstack:landed` and run `/jstack:ship #<task>`; revert and set `jstack:ready`; or fix forward with a new task via `/jstack:shape`. If the PR has a trusted `jstack:automerge` comment, first open the revert PR per merging.md.
 
 ## 6. Close the spec
 
-After a task is deployed, read the spec's `## Tasks` list. If every task is deployed (closed), close the spec issue: `gh issue close <spec>`.
+A task is done when closed with `jstack:deployed`, or with `jstack:landed` in a repo with no deploy workflow. When every task in the spec's `## Tasks` is done: `gh issue close <spec> --reason completed`.
 
-Done when the spec is closed, or you have confirmed some tasks remain.
+Done when the spec is closed, or you have named the tasks that remain.

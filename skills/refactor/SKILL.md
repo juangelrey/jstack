@@ -10,8 +10,8 @@ A refactor changes structure, never behavior. If behavior must change, that is a
 ## Rules
 
 1. **Scope**: only code the current task touches. Note other mess; do not fix it.
-2. **Green before, green after**: run the checks (`node <jstack root>/scripts/checks.mjs --cwd <worktree>`) before starting and after each step. If a step turns them red, revert that step; do not debug forward. If checks were red before you began, stop and fix or report that first.
-3. **One move at a time**: rename, extract, inline, move, delete dead code. Each is its own commit.
+2. **Green before, green after**: run the full checks (`node <jstack root>/scripts/checks.mjs --cwd <worktree>`) before starting and after the last move. After each move in between, run the tests that cover the touched code. If a move turns them red, revert that move; do not debug forward. If checks were red before you began, stop and fix or report that first.
+3. **One move at a time**: rename, extract, inline, move, delete dead code. Each is its own commit, separate from the red-green commit before it, following the contract's commit rules.
 4. **Same behavior**: same outputs, errors, side effects and public interfaces. Tests that assert behavior stay untouched; if one must change, you changed behavior.
 
 ## Chesterton's Fence

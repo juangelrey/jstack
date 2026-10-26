@@ -8,69 +8,55 @@ model: sonnet
 
 # Prove
 
-Establish, independently of the author, whether the task's PR is right. Read `<jstack root>/reference/contract.md` first (`<jstack root>` is two directories above this skill's base directory). Inputs: the task issue, its PR, `.jstack/config.yml`. Output: one verdict comment on the PR and a label change.
+Establish, independently of the author, whether the task's PR is right. Read `<jstack root>/reference/contract.md` first (`<jstack root>` is two directories above this skill's base directory). Only what this phase runs, or its fresh subagents observe, counts as proof; the author's checks and Evidence are claims.
 
 The task is: $ARGUMENTS
 
-The author's own self-checks, test output and PR Evidence never count. Only what this phase runs, or what its fresh subagents observe, counts.
-
 ## 1. Accept
 
-Fetch the task: `gh issue view <task> --json labels,body,comments`. Proceed only if its label is `jstack:proving`. Otherwise stop and say which phase the label needs instead.
+`config.mjs`, `github.mjs state --task <task>`, `github.mjs pr --task <task>`. Proceed with state `proving` and one open PR; record `SHA`, its full `headRefOid`.
 
-Find the task's PR as the contract describes. No open PR: stop and say so.
+Done when you hold the task, PR and SHA.
 
-Record `SHA` = the PR's full `headRefOid`. Everything below is about that SHA.
-
-Done when you hold the task number, PR number and SHA.
-
-## 2. Prove in parallel
-
-Fetch the head and make a detached worktree outside the repo:
+## 2. Prove
 
 ```sh
 git fetch origin pull/<pr>/head
 git worktree add --detach <tmp dir> <SHA>
+node <jstack root>/scripts/checks.mjs --cwd <tmp dir>
+git worktree remove --force <tmp dir>
 ```
 
-In one message, start all four at once:
+Checks: `pass: false` is FAIL (quote failing commands and `outputTail`); a `(config)` result or a crash is ERROR.
 
-- **Checks**: `node <jstack root>/scripts/checks.mjs --cwd <tmp dir>`. Read the JSON. `pass: false`, or no checks declared, is FAIL. Quote failing commands and `outputTail`.
-- Subagents `reviewer`, `verifier`, `security-reviewer`. None wrote the change. Give each only: task number, PR number, SHA, and the absolute `<jstack root>` path. No summary, no opinion, no earlier verdicts (ADR-0005).
+Then, in one message, start `jstack:reviewer`, `jstack:verifier` and `jstack:security-reviewer`. Each gets only the task, PR, SHA and `<jstack root>`: no summary, opinion or earlier verdict (ADR-0005).
 
-Remove your worktree when all four return (`git worktree remove --force <tmp dir>`).
-
-Done when you have four results. A subagent that errors or returns no verdict counts as FAIL for its gate.
+Done when you have four results. A subagent that crashes, reports "head moved" or returns no result line is ERROR.
 
 ## 3. Verdict
 
-Re-read the PR head. If it is no longer `SHA`, discard everything, post nothing, tell the human the head moved during Prove and to rerun `/jstack:prove #<task>`. Stop.
+If the PR head is no longer `SHA`, post nothing and tell the human to rerun `/jstack:prove #<task>`.
 
-Otherwise write the contract's verdict comment: `result=PASS` only if every gate passes (Verifier `PASS+NOTES` passes). `door` is the reviewer's rating; if the reviewer gave none, write `door=one-way`. Blocking findings go under Findings with file:line and fix, deduplicated, each tagged with its gate. Non-blocking observations go under Notes. Post it:
+Otherwise compose the contract's verdict:
+
+- `result`: ERROR if any gate errored, else PASS if every gate passed (`PASS+NOTES` and `PASS+HUMAN` pass), else FAIL.
+- `door`: the reviewer's rating; `one-way` when it gave none or security raised an `ASK`.
+- `verify=human` when the verifier returned `PASS+HUMAN`, with its steps under Human verification; else `machine`.
+- Findings: blocking items, deduplicated, tagged by gate. `ASK` items and the rest go under Notes.
 
 ```sh
+node <jstack root>/scripts/validate.mjs verdict --file <file> --sha <SHA>
 gh pr comment <pr> --body-file <file>
 ```
 
-Done when the comment is on the PR with the full `SHA` in its marker.
-
 ## 4. Move the task
 
-**PASS**: leave `jstack:proving`, then go to 5.
-
-**FAIL**: count PR comments with a `jstack:verdict` marker and `result=FAIL`, including the one just posted. Read `limits.max_retries` (default 3).
-
-- Count below max: `gh issue edit <task> --remove-label jstack:proving --add-label jstack:implementing`. Tell the human the next step is `/jstack:implement #<task>`.
-- Count at or above max: `gh issue edit <task> --remove-label jstack:proving --add-label jstack:blocked`, and post the contract's blocked comment on the task (`phase=prove`; Why: attempt count; Tried: the verdicts; Human decision needed: rescope, rewrite the task, or abandon).
-
-Done when the label matches the verdict and the human knows the next command, or that the task is blocked.
+- **PASS**: stays `proving`; go to 5.
+- **ERROR**: stays `proving`, costs no attempt. Tell the human which gate errored and to rerun once fixed.
+- **FAIL**: by `failCount` from `github.mjs verdict`: up to `limits.max_retries`, move to `implementing` and point to `/jstack:implement #<task>`. Above it, block with `phase=prove`, offering: edit the task and set `jstack:implementing` for a fresh budget; close the PR, delete its branch and set `jstack:ready` to re-plan; or close PR and task as not planned.
 
 ## 5. Auto-merge (PASS only)
 
-Run the contract's auto-merge script: `node <jstack root>/scripts/automerge.mjs --pr <pr>`.
+Follow `<jstack root>/reference/merging.md`, Auto-merge.
 
-- **Eligible**: post the contract's `jstack:automerge` log comment on the PR, then follow `<jstack root>/skills/ship/SKILL.md` from its step 4 (Merge) to the end. Tell the human it auto-merged and why.
-- **Only `behind`**, first time this run: `gh pr update-branch <pr>`, then restart from step 1 on the new head.
-- **Anything else**: tell the human the next step is `/jstack:ship #<task>` and list the script's reasons, so they know why it needs them.
-
-Done when the PR is merged through Ship's steps, or the human has the reasons and the next command.
+Done when the PR is merged, or the human has the script's reasons and `/jstack:ship #<task>`.

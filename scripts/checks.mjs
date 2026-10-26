@@ -1,94 +1,129 @@
 #!/usr/bin/env node
-// Runs the `checks` commands from .jstack/config.yml and prints one JSON object.
-import { readFileSync, existsSync } from 'node:fs';
-import { spawnSync } from 'node:child_process';
-import { join, resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
+// Runs the `setup` then `checks` commands from .jstack/config.yml and prints one JSON object.
+import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
+import { defaultExec, emit, isMain, parseArgs } from './lib.mjs';
+import { loadConfig } from './config.mjs';
 
-function stripComment(line) {
-  let q = null;
-  for (let i = 0; i < line.length; i++) {
-    const c = line[i];
-    if (q) {
-      if (c === '\\' && q === '"') i++;
-      else if (c === q) q = null;
-    } else if (c === '"' || c === "'") q = c;
-    else if (c === '#' && (i === 0 || /\s/.test(line[i - 1]))) return line.slice(0, i);
-  }
-  return line;
+export { parseConfig, loadConfig } from './config.mjs';
+
+const MAX_KEEP = 1024 * 1024;
+
+/** Last `n` lines of text, CRLF-normalized. */
+export function tail(text, n = 40) {
+  return String(text).replace(/\r\n/g, '\n').replace(/\n+$/, '').split('\n').slice(-n).join('\n');
 }
 
-function scalar(raw) {
-  const s = raw.trim();
-  if (s.length >= 2 && s[0] === '"' && s.at(-1) === '"') {
-    return s.slice(1, -1).replace(/\\(["\\])/g, '$1');
-  }
-  if (s.length >= 2 && s[0] === "'" && s.at(-1) === "'") return s.slice(1, -1).replace(/''/g, "'");
-  return s;
-}
-
-/** Parse the contract's YAML subset. Scalars stay strings. */
-export function parseConfig(text) {
-  const out = {};
-  let key = null;
-  for (const rawLine of String(text).split(/\r?\n/)) {
-    const line = stripComment(rawLine).replace(/\s+$/, '');
-    if (!line.trim()) continue;
-    const indent = line.match(/^ */)[0].length;
-    const body = line.trim();
-    if (body.startsWith('- ') || body === '-') {
-      if (key === null) continue;
-      if (!Array.isArray(out[key])) out[key] = [];
-      out[key].push(scalar(body.slice(1)));
-      continue;
+/** Find Git Bash next to git on Windows. Returns a path or null. Never picks System32/WSL bash. */
+export function findGitBash(exec = defaultExec, exists = existsSync) {
+  const r = exec('git', ['--exec-path'], {});
+  if (r.code !== 0) return null;
+  let dir = resolve(r.stdout.trim());
+  for (let i = 0; i < 6; i++) {
+    for (const rel of ['bin/bash.exe', 'usr/bin/bash.exe']) {
+      const p = join(dir, rel);
+      if (!/system32/i.test(p) && exists(p)) return p;
     }
-    const m = body.match(/^([A-Za-z0-9_.-]+):(?:\s+(.*))?$/);
-    if (!m) continue;
-    const [, k, v] = m;
-    if (indent === 0) {
-      key = k;
-      out[k] = v === undefined || v === '' ? null : scalar(v);
-    } else if (key !== null) {
-      if (out[key] === null || Array.isArray(out[key])) out[key] = {};
-      if (typeof out[key] === 'object') out[key][k] = v === undefined ? '' : scalar(v);
-    }
+    const up = dirname(dir);
+    if (up === dir) break;
+    dir = up;
   }
-  for (const k of Object.keys(out)) if (out[k] === null) out[k] = [];
-  return out;
+  return null;
 }
 
-/** Read <cwd>/.jstack/config.yml. Returns {} if missing. */
-export function loadConfig(cwd) {
-  const file = join(cwd, '.jstack', 'config.yml');
-  return existsSync(file) ? parseConfig(readFileSync(file, 'utf8')) : {};
+/** How to run a command with POSIX sh semantics: {file, args(cmd), shellWarning?}. */
+export function resolveShell({ platform = process.platform, exec = defaultExec, exists = existsSync } = {}) {
+  if (platform !== 'win32') return { file: '/bin/sh', args: (c) => ['-c', c] };
+  const bash = findGitBash(exec, exists);
+  if (bash) return { file: bash, args: (c) => ['-c', c] };
+  return { file: null, args: null, shellWarning: 'Git Bash not found; ran commands with the default Windows shell' };
 }
 
-function tail(text, n = 40) {
-  return text.replace(/\r\n/g, '\n').replace(/\n+$/, '').split('\n').slice(-n).join('\n');
+/** Kill a process and its children, best effort. */
+function killTree(child) {
+  try {
+    if (process.platform === 'win32') {
+      spawn('taskkill', ['/pid', String(child.pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true });
+    } else process.kill(-child.pid, 'SIGKILL');
+  } catch {
+    try { child.kill('SIGKILL'); } catch { /* already gone */ }
+  }
 }
 
-export function runChecks(cwd) {
-  const checks = loadConfig(cwd).checks;
-  if (!Array.isArray(checks) || checks.length === 0) {
+/** Run one command; resolves {exitCode, durationMs, outputTail}. exitCode 124 on timeout. */
+export function runCommand(command, { cwd, shell, timeoutMs }) {
+  return new Promise((done) => {
+    const t0 = Date.now();
+    let out = '';
+    let timedOut = false;
+    let finished = false;
+    const add = (d) => { out += d; if (out.length > MAX_KEEP) out = out.slice(-MAX_KEEP); };
+    const opts = { cwd, windowsHide: true, detached: process.platform !== 'win32', stdio: ['ignore', 'pipe', 'pipe'] };
+    let child;
+    try {
+      child = shell.file ? spawn(shell.file, shell.args(command), opts) : spawn(command, { ...opts, shell: true });
+    } catch (err) {
+      done({ exitCode: 1, durationMs: 0, outputTail: tail(String(err.message)) });
+      return;
+    }
+    const finish = (code) => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timer);
+      clearTimeout(grace);
+      if (timedOut) add(`\n[jstack] timed out after ${Math.round(timeoutMs / 1000)}s and was killed`);
+      done({ exitCode: timedOut ? 124 : code ?? 1, durationMs: Date.now() - t0, outputTail: tail(out) });
+    };
+    let grace;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      killTree(child);
+      grace = setTimeout(() => finish(124), 5000);
+    }, timeoutMs);
+    child.stdout.setEncoding('utf8').on('data', add);
+    child.stderr.setEncoding('utf8').on('data', add);
+    child.on('error', (err) => { add(String(err.message)); finish(1); });
+    child.on('close', (code) => finish(code));
+  });
+}
+
+/**
+ * Load config (trunk by default) and run setup then checks from `cwd`.
+ * Options: configSource 'trunk'|'worktree', exec (for gh/git), timeoutMs override, shell override.
+ */
+export async function runChecks({ cwd, configSource = 'trunk', exec = defaultExec, timeoutMs, shell } = {}) {
+  const loaded = loadConfig({ cwd, source: configSource, exec });
+  const base = { configSource };
+  if (!loaded.ok) {
     return {
-      pass: false,
-      results: [{ command: '(none)', exitCode: 1, durationMs: 0, outputTail: 'no checks declared' }],
+      ...base, pass: false,
+      results: [{ phase: 'config', command: '(config)', exitCode: 1, durationMs: 0, outputTail: loaded.errors.join('\n') }],
     };
   }
-  const results = checks.map((command) => {
-    const t0 = Date.now();
-    const r = spawnSync(command, { cwd, shell: true, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
-    const exitCode = r.status ?? 1;
-    const out = (r.stdout || '') + (r.stderr || '') + (r.error ? String(r.error.message) : '');
-    return { command, exitCode, durationMs: Date.now() - t0, outputTail: tail(out) };
-  });
-  return { pass: results.every((r) => r.exitCode === 0), results };
+  const { setup, checks, limits } = loaded.config;
+  if (checks.length === 0) {
+    return { ...base, pass: false, results: [{ phase: 'check', command: '(none)', exitCode: 1, durationMs: 0, outputTail: 'no checks declared' }] };
+  }
+  const sh = shell ?? resolveShell({ exec });
+  if (sh.shellWarning) base.shellWarning = sh.shellWarning;
+  const limit = timeoutMs ?? limits.check_timeout_minutes * 60_000;
+  const results = [];
+  for (const command of setup) {
+    const r = await runCommand(command, { cwd, shell: sh, timeoutMs: limit });
+    results.push({ phase: 'setup', command, ...r });
+    if (r.exitCode !== 0) return { ...base, pass: false, results };
+  }
+  for (const command of checks) {
+    results.push({ phase: 'check', command, ...(await runCommand(command, { cwd, shell: sh, timeoutMs: limit })) });
+  }
+  return { ...base, pass: results.every((r) => r.exitCode === 0), results };
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
-  const i = process.argv.indexOf('--cwd');
-  const cwd = resolve(i > -1 && process.argv[i + 1] ? process.argv[i + 1] : process.cwd());
-  const report = runChecks(cwd);
-  process.stdout.write(JSON.stringify(report) + '\n');
-  process.exit(report.pass ? 0 : 1);
+if (isMain(import.meta.url)) {
+  const a = parseArgs(process.argv.slice(2));
+  const cwd = resolve(typeof a.cwd === 'string' ? a.cwd : process.cwd());
+  runChecks({ cwd, configSource: a['config-worktree'] ? 'worktree' : 'trunk' })
+    .then((r) => emit(r, r.pass))
+    .catch((err) => emit({ pass: false, configSource: null, results: [{ phase: 'config', command: '(internal)', exitCode: 1, durationMs: 0, outputTail: String(err.message) }] }, false));
 }

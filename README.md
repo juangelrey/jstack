@@ -1,6 +1,6 @@
 # jstack
 
-A stack-agnostic Claude Code plugin that runs a **lit-by-default software factory**: intake → plan → build → verify → review, driven by GitHub Issues, with human gates at plan approval and merge.
+A stack-agnostic Claude Code plugin that runs a **lit-by-default software factory**: Intent → Shape → Implement → Prove → Ship, driven by GitHub Issues, with human gates at intent, task list, plan and merge.
 
 Built as a learning project. See `docs/adr/` for decisions and `docs/journal/` for lessons.
 
@@ -15,6 +15,22 @@ Status: v0, all phase skills drafted, not yet run end to end.
 | `/jstack:implement #<task>` | Implement | task issue | plan comment; after you add `jstack:approved`, a PR built test-first |
 | `/jstack:prove #<task>` | Prove | task + PR | verdict comment from checks, reviewer, verifier and security reviewer |
 | `/jstack:ship #<task>` | Ship | proven PR | merged after you say "merge", then deployed |
+
+Run each command in a fresh session (`/clear` between phases). A repo can grant auto-merge of two-way-door PRs (ADR-0008); Prove then merges eligible PRs itself.
+
+## Set up a target repo
+
+Merge a `.jstack/config.yml` to the default branch first: phases read it from there, and with no `checks` every task blocks. Minimal example:
+
+```yaml
+version: 1
+setup:
+  - npm ci
+checks:
+  - npm test
+```
+
+`node scripts/config.mjs` prints every key with its default. jstack also needs `gh` logged in with write access, Node 18+, and on Windows Git Bash. If your commits are signed, load the key first (for SSH signing, `ssh-add <key>`): jstack never bypasses signing.
 
 Every interface between phases (labels, artifact formats, gates, config) is defined in [`reference/contract.md`](reference/contract.md).
 

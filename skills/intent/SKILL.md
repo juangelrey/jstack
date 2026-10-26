@@ -11,11 +11,11 @@ Turn a rough idea into a **confirmed intent**: a statement of what the target re
 
 The rough idea is: $ARGUMENTS
 
-Read `../../reference/contract.md` (relative to this skill's base directory) first: it defines the labels and artifacts every phase shares.
+Read `<jstack root>/reference/contract.md` first (`<jstack root>` is two directories above this skill's base directory). It defines how phases run, trust, labels and artifacts.
 
 ## 1. Ground yourself
 
-Read the target repo before asking anything: `README`, `GLOSSARY.md`, `docs/adr/`, and the open intents (`gh issue list --label jstack:intent`). If an open intent already covers this idea, show it and ask whether to refine that one instead of filing a new one.
+Read the target repo before asking anything: `README`, and `GLOSSARY.md` and `docs/adr/` if present, and the open intents (`gh issue list --label jstack:intent --state open`). If an open intent already covers this idea, show it and ask whether to refine that one instead of filing a new one.
 
 Facts are your job: anything the repo, its docs or `gh` can answer, look up yourself. Decisions are the human's.
 
@@ -33,7 +33,7 @@ Done when the frontier is empty: every field has an answer the human gave or acc
 
 ## 3. Confirm
 
-Fill the template and show it to the human in full. Every section is non-empty; write `None` where the human has said there is nothing.
+Fill the template into a file and validate it (`node <jstack root>/scripts/validate.mjs intent --file <file>`); fix every error before showing it. Then show the human the full text. Every section is non-empty; write `None` where the human has said there is nothing.
 
 ```md
 ## Outcome
@@ -61,15 +61,15 @@ Fill the template and show it to the human in full. Every section is non-empty; 
 - <open questions handed to Shape>
 ```
 
-Done only when the human replies with an explicit confirmation of this exact text. Any change, however small, means revise and show the full text again.
+Done only when the human replies with an explicit confirmation of this exact text. Any change, however small, means revise, validate, and show the full text again.
 
 ## 4. File
 
-Make sure the label exists, then file the issue with the confirmed text as its body, unchanged:
+Make sure the labels exist, then file the issue with the confirmed text as its body, unchanged:
 
 ```sh
-gh label create jstack:intent --color 5319E7 --description "Confirmed intent" --force
+node <jstack root>/scripts/github.mjs labels
 gh issue create --label jstack:intent --title "<outcome, under 70 characters>" --body-file <file with the confirmed text>
 ```
 
-Done when the issue exists. Reply with its URL and name the next phase: `/jstack:shape #<number>`.
+Done when the issue exists. Reply with its URL and name the next phase, in a fresh session: `/jstack:shape #<number>`.

@@ -13,7 +13,7 @@ Any repository the factory works on. It knows nothing about jstack except its pr
 _Avoid_: Project, app, client repo
 
 **Project config**:
-The target repo's declaration of its own specifics (verify commands, protected paths, rubric, autonomy modes, model overrides). The only place stack knowledge lives.
+The target repo's declaration of its own specifics (setup and check commands, protected paths, rubric, autonomy modes, model overrides), read from the default branch. The only place stack knowledge lives.
 _Avoid_: Settings, manifest
 
 **Harness**:

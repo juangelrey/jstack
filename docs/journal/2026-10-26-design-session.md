@@ -50,3 +50,10 @@ Read Addy Osmani's "Software Factories, Light and Dark", then grilled the design
 - Researched auto-merge: the people who teach agentic workflows (Osmani, Matt, Theo) keep a human on every merge. Those running factories in production (Lauren Tan, Vercel, PostHog) auto-merge, behind an explicit grant, an independent verdict on the current head, paths that always need a human, and a size limit. Nobody trusts the author's own risk rating.
 - ADR-0008: the reviewer rates the door as a challenger, and doubt means one-way. A deterministic script decides eligibility and fails closed. The repo opts in. A failed deploy after an auto-merge opens a revert PR.
 - Lesson: a test caught a fail-open bug in the guard script, where an empty "behind trunk" answer was read as 0, meaning up to date. Guards need tests on the unknown cases, not just the yes/no ones.
+
+## Update: pre-dry-run review
+- Reviewed every skill, agent and script for gaps before a dry run. About 50 findings; the worst were security holes: on a public repo anyone can comment, so plans, verdicts and PRs found by marker alone were spoofable.
+- Fixes: only artifacts from users with write access count (`scripts/github.mjs`); every label move goes through one script that enforces the edges; every artifact is validated before posting (`scripts/validate.mjs`), so the three chat gates now run checks too; config is read from the default branch; merges pin the proven head; a hook stops agents adding `jstack:approved`, leaving `jstack:blocked`, bypassing signing, or editing protected paths.
+- New behaviors: plan feedback by comment, ERROR verdicts that don't burn retries, human verification for criteria needing credentials, fresh tests written by the verifier, recovery on rerun for every phase, a `setup` step for dependencies.
+- Deferred: per-phase usage logging (ADR-0006).
+- Lesson: a skill's `model:` applies only to the turn that invokes it, so an interactive skill's later turns run on the session model.

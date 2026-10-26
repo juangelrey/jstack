@@ -1,12 +1,18 @@
 {
   "name": "jstack",
   "version": "0.1.0",
-  "description": "Lit-by-default AI software factory: intake, plan, build, verify, review loops driven by GitHub Issues, with human gates at plan approval and merge.",
+  "description": "Lit-by-default AI software factory: Intent, Shape, Implement, Prove and Ship phases driven by GitHub Issues, with human gates at intent, task list, plan and merge.",
   "author": {
     "name": "Juan Rey",
     "url": "https://github.com/juangelrey"
   },
   "repository": "https://github.com/juangelrey/jstack",
   "license": "MIT",
-  "keywords": ["software-factory", "workflow", "github-issues", "tdd", "code-review"]
+  "keywords": [
+    "software-factory",
+    "workflow",
+    "github-issues",
+    "tdd",
+    "code-review"
+  ]
 }
