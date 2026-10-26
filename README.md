@@ -30,9 +30,16 @@ checks:
   - npm test
 ```
 
-`node scripts/config.mjs` prints every key with its default. jstack also needs `gh` logged in with write access, Node 18+, and on Windows Git Bash. If your commits are signed, load the key first (for SSH signing, `ssh-add <key>`): jstack never bypasses signing.
+`node scripts/config.mjs` prints every key with its default.
 
 Every interface between phases (labels, artifact formats, gates, config) is defined in [`reference/contract.md`](reference/contract.md).
+
+## Requirements
+
+- `gh`, logged in with write access to the target repo
+- Node 18+
+- On Windows, Git Bash
+- **Signed commits**: jstack commits without prompting, so your signing key must already be unlocked (`ssh-add` for SSH, a running gpg-agent for GPG). If it isn't, the task blocks and asks you to load it.
 
 ## Install
 
