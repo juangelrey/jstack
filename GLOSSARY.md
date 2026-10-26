@@ -86,6 +86,17 @@ _Avoid_: Approval, code review
 An agent that did not write the change and runs it the way a user would, giving a verdict that expires when the change does.
 _Avoid_: Tester, QA
 
+**Two-way door**:
+A change that a plain revert fully undoes, whose effects nothing outside the repo has observed or stored.
+
+**One-way door**:
+Any change that is not clearly a two-way door. Doubt makes a change one-way.
+_Avoid_: Risky change, breaking change
+
+**Auto-merge**:
+A merge cleared by the auto-merge script instead of a human, allowed only for two-way doors in repos that grant it.
+_Avoid_: Automerge, self-merge
+
 **Landed**:
 A task whose change is merged to the default branch but not yet deployed.
 

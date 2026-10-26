@@ -45,3 +45,8 @@ Read Addy Osmani's "Software Factories, Light and Dark", then grilled the design
 - Each builder reported contract gaps (filing order, PR lookup, default branch, head moving during Prove...). All were folded back into the contract, so it is the one place those rules live.
 - Integration bugs found in review: `Closes #N` in the PR would close the task at merge, before deploy. Three different PR lookups. Subagents never received the plugin root. The security reviewer had no Skill tool to load the security skill.
 - Lesson: parallel builders against a shared contract work, but the contract only becomes complete through their gap reports.
+
+## Update: auto-merge for two-way doors
+- Researched auto-merge: the people who teach agentic workflows (Osmani, Matt, Theo) keep a human on every merge. Those running factories in production (Lauren Tan, Vercel, PostHog) auto-merge, behind an explicit grant, an independent verdict on the current head, paths that always need a human, and a size limit. Nobody trusts the author's own risk rating.
+- ADR-0008: the reviewer rates the door as a challenger, and doubt means one-way. A deterministic script decides eligibility and fails closed. The repo opts in. A failed deploy after an auto-merge opens a revert PR.
+- Lesson: a test caught a fail-open bug in the guard script, where an empty "behind trunk" answer was read as 0, meaning up to date. Guards need tests on the unknown cases, not just the yes/no ones.

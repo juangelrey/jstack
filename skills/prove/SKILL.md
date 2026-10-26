@@ -46,7 +46,7 @@ Done when you have four results. A subagent that errors or returns no verdict co
 
 Re-read the PR head. If it is no longer `SHA`, discard everything, post nothing, tell the human the head moved during Prove and to rerun `/jstack:prove #<task>`. Stop.
 
-Otherwise write the contract's verdict comment: `result=PASS` only if every gate passes (Verifier `PASS+NOTES` passes). Blocking findings go under Findings with file:line and fix, deduplicated, each tagged with its gate. Non-blocking observations go under Notes. Post it:
+Otherwise write the contract's verdict comment: `result=PASS` only if every gate passes (Verifier `PASS+NOTES` passes). `door` is the reviewer's rating; if the reviewer gave none, write `door=one-way`. Blocking findings go under Findings with file:line and fix, deduplicated, each tagged with its gate. Non-blocking observations go under Notes. Post it:
 
 ```sh
 gh pr comment <pr> --body-file <file>
@@ -56,7 +56,7 @@ Done when the comment is on the PR with the full `SHA` in its marker.
 
 ## 4. Move the task
 
-**PASS**: leave `jstack:proving`. Tell the human the next step is `/jstack:ship #<task>`.
+**PASS**: leave `jstack:proving`, then go to 5.
 
 **FAIL**: count PR comments with a `jstack:verdict` marker and `result=FAIL`, including the one just posted. Read `limits.max_retries` (default 3).
 
@@ -64,3 +64,13 @@ Done when the comment is on the PR with the full `SHA` in its marker.
 - Count at or above max: `gh issue edit <task> --remove-label jstack:proving --add-label jstack:blocked`, and post the contract's blocked comment on the task (`phase=prove`; Why: attempt count; Tried: the verdicts; Human decision needed: rescope, rewrite the task, or abandon).
 
 Done when the label matches the verdict and the human knows the next command, or that the task is blocked.
+
+## 5. Auto-merge (PASS only)
+
+Run the contract's auto-merge script: `node <jstack root>/scripts/automerge.mjs --pr <pr>`.
+
+- **Eligible**: post the contract's `jstack:automerge` log comment on the PR, then follow `<jstack root>/skills/ship/SKILL.md` from its step 4 (Merge) to the end. Tell the human it auto-merged and why.
+- **Only `behind`**, first time this run: `gh pr update-branch <pr>`, then restart from step 1 on the new head.
+- **Anything else**: tell the human the next step is `/jstack:ship #<task>` and list the script's reasons, so they know why it needs them.
+
+Done when the PR is merged through Ship's steps, or the human has the reasons and the next command.

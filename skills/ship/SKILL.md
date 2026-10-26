@@ -63,6 +63,7 @@ Otherwise, with `<sha>` the merge commit on the default branch:
 2. Watch it: `gh run watch <id> --exit-status`.
 3. Success: `gh issue edit <task> --remove-label jstack:landed --add-label jstack:deployed`, then `gh issue close <task>`.
 4. Run failed, or none appeared in time: `gh issue edit <task> --remove-label jstack:landed --add-label jstack:blocked`, and post the contract's blocked comment (`phase=ship`) with the run URL, what you tried, and the decision the human needs to make (fix forward, revert, or rerun).
+5. If the PR carries a `jstack:automerge` comment and the run failed, also open the contract's revert PR: branch `jstack/<task>-revert` from the default branch, `git revert --no-edit <merge commit>`, push, `gh pr create` with the revert marker. Name it in the blocked comment as the ready-made revert option. Never merge it yourself.
 
 Done when the task is `jstack:deployed` and closed, or `jstack:blocked` with the comment posted.
 

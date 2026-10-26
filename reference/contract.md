@@ -140,7 +140,7 @@ A one-way door is a change that a revert does not fully undo: data migrations, d
 Posted on the PR by Prove. A verdict is valid only for the PR head it names; a new head needs a new verdict.
 
 ```md
-<!-- jstack:verdict sha=<full head sha> result=<PASS|FAIL> -->
+<!-- jstack:verdict sha=<full head sha> result=<PASS|FAIL> door=<one-way|two-way> -->
 ## Prove: <PASS|FAIL>
 | Gate | Result |
 |---|---|
@@ -148,6 +148,7 @@ Posted on the PR by Prove. A verdict is valid only for the PR head it names; a n
 | Review | PASS/FAIL |
 | Verifier | PASS/PASS+NOTES/FAIL |
 | Security | PASS/FAIL |
+| Door (reviewer) | one-way/two-way |
 
 ### Findings
 - <each blocking finding with file:line and what would fix it>
@@ -193,9 +194,14 @@ limits:
   max_plan_steps: 10
 ship:
   deploy_workflow: Deploy   # name of the GitHub Actions workflow that deploys the default branch. Omit if none
+autonomy:
+  ship_two_way: lit         # dark grants auto-merge of two-way-door PRs (ADR-0008)
+  max_lines: 200            # largest diff (additions + deletions) that may auto-merge
+human_paths:                # globs that always need a human merge, on top of protected_paths and the built-in list
+  - src/pricing/**
 ```
 
-Defaults: `checks: []`, `protected_paths: []`, no rubric, `max_retries: 3`, `max_plan_steps: 10`, no deploy workflow. With no `checks`, the checks gate fails with "no checks declared": every gate runs checks (ADR-0003).
+Defaults: `checks: []`, `protected_paths: []`, no rubric, `max_retries: 3`, `max_plan_steps: 10`, no deploy workflow, `ship_two_way: lit`, `max_lines: 200`, `human_paths: []`. With no `checks`, the checks gate fails with "no checks declared": every gate runs checks (ADR-0003).
 
 Run the checks with the bundled script, never by hand:
 
@@ -205,6 +211,26 @@ node <jstack root>/scripts/checks.mjs [--cwd <path>]
 
 It prints one JSON object (`{"pass": bool, "results": [{"command", "exitCode", "durationMs", "outputTail"}]}`), exits 0 when every check passes and 1 otherwise. With no checks declared it reports `pass: false` and a single result with command `(none)` and output `no checks declared`. `<jstack root>` is two directories above any jstack skill's base directory.
 
+## Auto-merge
+
+When a repo grants it (`autonomy.ship_two_way: dark`), a PR may merge without a human (ADR-0008). Only this script decides eligibility:
+
+```sh
+node <jstack root>/scripts/automerge.mjs --pr <pr>
+```
+
+It prints `{"eligible": bool, "behind": bool, "lines": n, "reasons": [...]}` and exits 0 only when eligible. It requires: the grant, the newest verdict PASS for the current head with `door=two-way`, the author's Merge danger starting with `two-way door`, no changed file matching a human-only path (`DEFAULT_HUMAN_PATHS` in the script, plus `protected_paths` and `human_paths`), a diff within `max_lines`, the branch not behind trunk, every GitHub check green, and the PR mergeable. Anything it cannot evaluate makes the PR ineligible.
+
+Prove runs it after posting a PASS verdict. If the only reason is `behind`, Prove updates the branch (`gh pr update-branch <pr>`) and proves the new head, once per run. When eligible, Prove posts the log comment below on the PR and follows Ship from its Merge step:
+
+```md
+<!-- jstack:automerge sha=<head sha> -->
+## Auto-merged (ADR-0008)
+<the script's JSON output>
+```
+
+If the deploy of an auto-merged PR fails, Ship opens a revert PR (branch `jstack/<task>-revert`, body starting `<!-- jstack:revert task=#<task> -->`) and blocks the task. A revert PR is never auto-merged.
+
 ## Human gates
 
 | Gate | Phase | How the human clears it |
@@ -212,6 +238,6 @@ It prints one JSON object (`{"pass": bool, "results": [{"command", "exitCode", "
 | Intent | intent | Explicit confirmation of the full text in chat |
 | Task list | shape | Explicit confirmation of the full task list in chat |
 | Plan | implement | Adds `jstack:approved` to the task issue on GitHub |
-| Merge | ship | Explicit "merge" in chat after seeing the evidence and merge danger |
+| Merge | ship | Explicit "merge" in chat after seeing the evidence and merge danger. Under ADR-0008, the auto-merge script clears it for eligible two-way doors |
 
 Every gate also runs checks; the human is added on top, never instead.

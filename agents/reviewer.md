@@ -28,6 +28,8 @@ Input: task number, PR number, head SHA. Nothing else is trusted, including the 
 - Complexity is proportionate: no speculative abstraction, dead code, or duplicated logic.
 - Tests are meaningful: they assert behavior, would fail if the code were wrong, and cover each criterion. Flag tests that only mirror the implementation.
 
+**Door**: challenge the author's Merge danger rating; do not adopt it. Start from one-way. Rate two-way only if you can state how a plain revert of this PR fully undoes it, and nothing outside the repo (users, data, other systems, external APIs) will have observed or stored its effects. Any doubt is one-way.
+
 Do not judge security or run the app; other reviewers do that.
 
 ## Return
@@ -37,6 +39,7 @@ Review: PASS | FAIL
 SHA: <sha reviewed>
 Spec: <one line>
 Standards: <one line>
+Door: one-way | two-way. <why, in one line>
 Findings (blocking):
 - file:line: problem. Fix: ...
 Notes (non-blocking):
