@@ -1,0 +1,16 @@
+{
+  "name": "jstack",
+  "owner": {
+    "name": "Juan Rey",
+    "url": "https://github.com/juangelrey"
+  },
+  "description": "jstack software factory plugin.",
+  "plugins": [
+    {
+      "name": "jstack",
+      "source": "./",
+      "description": "Lit-by-default AI software factory driven by GitHub Issues.",
+      "category": "engineering"
+    }
+  ]
+}
