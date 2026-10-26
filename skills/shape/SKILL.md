@@ -14,9 +14,9 @@ The intent issue is: $ARGUMENTS
 
 ## 1. Read the inputs
 
-`gh issue view <N> --json number,title,body,labels,state,author`. Accept an open `jstack:intent` issue whose author passes `github.mjs trusted --user <login>`; otherwise say what the input must be.
+`gh issue view <N> --json number,title,body,labels,state,author`. Accept an open `<prefix>: intent` issue whose author passes `github.mjs trusted --user <login>`; otherwise say what the input must be.
 
-If a trusted spec carrying `jstack:spec intent=#<N>` exists (`gh issue list --label jstack:spec --state all --search "jstack:spec intent=#<N>"`), or the intent was reopened, follow [resume.md](resume.md) instead.
+If a trusted spec carrying `jstack:spec intent=#<N>` exists (`gh issue list --label "<prefix>: spec" --state all --search "jstack:spec intent=#<N>"`), or the intent was reopened, follow [resume.md](resume.md) instead.
 
 Read `config.mjs`, then the repo at the trunk: `README`, `GLOSSARY.md`, `docs/adr/`, and the code the intent touches. Facts are your job; decisions are the human's.
 
@@ -52,7 +52,7 @@ Done only when the human explicitly confirms the list as last shown.
 ## 5. File
 
 1. `github.mjs labels`.
-2. The spec issue (`jstack:spec`, title `Spec: <outcome>`) with an empty `## Tasks` (`validate.mjs spec --draft`).
+2. The spec issue (`<prefix>: spec`, title `Spec: <outcome>`) with an empty `## Tasks` (`validate.mjs spec --draft`).
 3. The tasks in list order, label `<prefix>: ready`, each carrying `spec=#<spec>` and its dependencies' real numbers (`validate.mjs task --known <created numbers>`).
 4. Each task as a sub-issue; the API takes the id, not the number:
 

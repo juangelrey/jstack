@@ -24,11 +24,11 @@ export const STATES = STATE_TABLE.map(([s]) => s);
 export const stateLabel = (state, prefix = DEFAULT_PREFIX) => `${prefix}: ${state}`;
 export const stateLabels = (prefix = DEFAULT_PREFIX) => STATES.map((s) => stateLabel(s, prefix));
 
-/** Every jstack label under a prefix: [name, color, meaning]. Intent and spec labels are fixed. */
+/** Every jstack label under a prefix: [name, color, meaning]. */
 export function labelTable(prefix = DEFAULT_PREFIX) {
   return [
-    ['jstack:intent', '5319E7', 'Confirmed intent'],
-    ['jstack:spec', '1D76DB', 'Spec parent issue'],
+    [stateLabel('intent', prefix), '5319E7', 'Confirmed intent'],
+    [stateLabel('spec', prefix), '1D76DB', 'Spec parent issue'],
     ...STATE_TABLE.map(([s, color, meaning]) => [stateLabel(s, prefix), color, meaning]),
   ];
 }

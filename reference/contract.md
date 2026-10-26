@@ -45,7 +45,7 @@ Checks: `node <jstack root>/scripts/checks.mjs --cwd <worktree>` runs `setup`, t
 
 ## Labels
 
-Each task carries exactly one state label `<prefix>: <state>`, with `<prefix>` from `labels.prefix` (default `state`, so `state: approved`). Set it before the first task: tasks keep the labels they were filed with. Phases read the state with `github.mjs state --task <n>` and change it with `github.mjs move --task <n> --from <state> --to <state>`, which enforces these edges:
+Each task carries exactly one state label `<prefix>: <state>`, with `<prefix>` from `labels.prefix` in `config.mjs` output (default `state`, so `state: approved`); intent and spec issues carry `<prefix>: intent` and `<prefix>: spec`. Set it before the first task: tasks keep the labels they were filed with. Phases read the state with `github.mjs state --task <n>` and change it with `github.mjs move --task <n> --from <state> --to <state>`, which enforces these edges:
 
 ```
 ready → planned → approved → implementing → proving → landed → deployed
@@ -61,9 +61,9 @@ blocked → <any>               (human only)
 
 All in GitHub, marked with HTML comments. Write each to a file and post it only once `node <jstack root>/scripts/validate.mjs <kind> --file <file>` passes.
 
-**Intent issue**, label `jstack:intent`: sections `Outcome`, `Why`, `Who benefits`, `Success signals`, `In scope`, `Out of scope`, `Constraints`, `Known unknowns`, each non-empty (`None` allowed).
+**Intent issue**, label `<prefix>: intent`: sections `Outcome`, `Why`, `Who benefits`, `Success signals`, `In scope`, `Out of scope`, `Constraints`, `Known unknowns`, each non-empty (`None` allowed).
 
-**Spec issue**, label `jstack:spec`, title `Spec: <outcome>`, linked to its tasks as sub-issues:
+**Spec issue**, label `<prefix>: spec`, title `Spec: <outcome>`, linked to its tasks as sub-issues:
 
 ```md
 <!-- jstack:spec intent=#<intent> -->

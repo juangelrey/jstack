@@ -44,6 +44,7 @@ const approvedEvent = (m, login = 'bob') => ({ event: 'labeled', label: { name: 
 test('labels table has ten labels and eight state labels', () => {
   assert.equal(labelTable().length, 10);
   assert.deepEqual(stateLabels(), ['state: ready', 'state: planned', 'state: approved', 'state: implementing', 'state: proving', 'state: landed', 'state: deployed', 'state: blocked']);
+  assert.equal(labelTable('flow')[0][0], 'flow: intent');
   assert.equal(labelTable('flow')[4][0], 'flow: approved');
 });
 
