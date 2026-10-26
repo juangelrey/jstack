@@ -1,0 +1,8 @@
+version: 1
+checks:
+  - npm test
+protected_paths:
+  - .github/workflows/**
+limits:
+  max_retries: 3
+  max_plan_steps: 10

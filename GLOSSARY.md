@@ -13,7 +13,7 @@ Any repository the factory works on. It knows nothing about jstack except its pr
 _Avoid_: Project, app, client repo
 
 **Project config**:
-The target repo's declaration of its own specifics (verify commands, protected paths, rubric, autonomy modes, model overrides). The only place stack knowledge lives.
+The target repo's declaration of its own specifics (setup and check commands, protected paths, rubric, autonomy modes, model overrides), read from the default branch. The only place stack knowledge lives.
 _Avoid_: Settings, manifest
 
 **Harness**:
@@ -85,6 +85,17 @@ _Avoid_: Approval, code review
 **Verifier**:
 An agent that did not write the change and runs it the way a user would, giving a verdict that expires when the change does.
 _Avoid_: Tester, QA
+
+**Two-way door**:
+A change that a plain revert fully undoes, whose effects nothing outside the repo has observed or stored.
+
+**One-way door**:
+Any change that is not clearly a two-way door. Doubt makes a change one-way.
+_Avoid_: Risky change, breaking change
+
+**Auto-merge**:
+A merge cleared by the auto-merge script instead of a human, allowed only for two-way doors in repos that grant it.
+_Avoid_: Automerge, self-merge
 
 **Landed**:
 A task whose change is merged to the default branch but not yet deployed.
