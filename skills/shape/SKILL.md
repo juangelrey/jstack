@@ -53,7 +53,7 @@ Done only when the human explicitly confirms the list as last shown.
 
 1. `github.mjs labels`.
 2. The spec issue (`jstack:spec`, title `Spec: <outcome>`) with an empty `## Tasks` (`validate.mjs spec --draft`).
-3. The tasks in list order, label `jstack:ready`, each carrying `spec=#<spec>` and its dependencies' real numbers (`validate.mjs task --known <created numbers>`).
+3. The tasks in list order, label `<prefix>: ready`, each carrying `spec=#<spec>` and its dependencies' real numbers (`validate.mjs task --known <created numbers>`).
 4. Each task as a sub-issue; the API takes the id, not the number:
 
    ```sh

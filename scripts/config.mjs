@@ -11,6 +11,7 @@ const MODELS = ['haiku', 'sonnet', 'opus'];
 const int = (min, def) => ({ type: 'int', min, def });
 const str = (def = null) => ({ type: 'string', def });
 const oneOf = (values, def) => ({ type: 'enum', values, def });
+const word = (def) => ({ type: 'word', def });
 
 /** Schema: top-level key -> {kind, def} for lists/scalars, or {kind:'object', keys}. */
 export const SCHEMA = {
@@ -26,6 +27,7 @@ export const SCHEMA = {
   ship: { kind: 'object', keys: { deploy_workflow: str() } },
   autonomy: { kind: 'object', keys: { ship_two_way: oneOf(['lit', 'dark'], 'lit'), max_lines: int(0, 200) } },
   human_paths: { kind: 'list' },
+  labels: { kind: 'object', keys: { prefix: word('state') } },
   models: {
     kind: 'object',
     keys: Object.fromEntries(['planner', 'reviewer', 'verifier', 'security-reviewer'].map((k) => [k, oneOf(MODELS, undefined)])),
@@ -153,6 +155,9 @@ function coerce(name, s, spec) {
     return n < spec.min ? { error: `${name}: must be >= ${spec.min}` } : { value: n };
   }
   if (spec.type === 'string') return isNull ? { value: null } : { value: v };
+  if (spec.type === 'word') {
+    return /^[A-Za-z0-9][\w-]{0,29}$/.test(v) ? { value: v } : { error: `${name}: letters, digits, - or _ (up to 30), got "${v}"` };
+  }
   if (spec.type === 'enum') {
     return spec.values.includes(v) ? { value: v } : { error: `${name}: must be one of ${spec.values.join('|')}, got "${v}"` };
   }

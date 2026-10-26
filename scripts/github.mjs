@@ -1,25 +1,37 @@
 #!/usr/bin/env node
 // GitHub state machine for jstack: labels, task state, approval, plans, PRs, verdicts, deploys.
 // Run from the target repo. Prints one JSON object; exits 0 iff ok. Only trusted authors count.
+import { loadConfig } from './config.mjs';
 import { emit, firstLine, isMain, makeCtx, parseArgs, sleep as realSleep, toInt } from './lib.mjs';
 
-/** Every jstack label: [name, color, meaning]. */
-export const LABELS = [
-  ['jstack:intent', '5319E7', 'Confirmed intent'],
-  ['jstack:spec', '1D76DB', 'Spec parent issue'],
-  ['jstack:ready', 'C5DEF5', 'Task cut, no plan yet'],
-  ['jstack:planned', 'FBCA04', 'Plan posted, waiting for human approval'],
-  ['jstack:approved', '0E8A16', 'Plan approved (human only)'],
-  ['jstack:implementing', 'D93F0B', 'Being implemented'],
-  ['jstack:proving', 'BFD4F2', 'PR open, under Prove'],
-  ['jstack:landed', 'C2E0C6', 'Merged, not yet deployed'],
-  ['jstack:deployed', '0B6623', 'Running in production'],
-  ['jstack:blocked', 'B60205', 'Needs a human decision'],
-];
+/** Default state label prefix (`labels.prefix` in the config): labels read `state: approved`. */
+export const DEFAULT_PREFIX = 'state';
 
-/** Task states, in label order (short names). */
-export const STATES = ['ready', 'planned', 'approved', 'implementing', 'proving', 'landed', 'deployed', 'blocked'];
-export const STATE_LABELS = STATES.map((s) => `jstack:${s}`);
+/** Task states, in label order, with color and meaning. */
+const STATE_TABLE = [
+  ['ready', 'C5DEF5', 'Task cut, no plan yet'],
+  ['planned', 'FBCA04', 'Plan posted, waiting for human approval'],
+  ['approved', '0E8A16', 'Plan approved (human only)'],
+  ['implementing', 'D93F0B', 'Being implemented'],
+  ['proving', 'BFD4F2', 'PR open, under Prove'],
+  ['landed', 'C2E0C6', 'Merged, not yet deployed'],
+  ['deployed', '0B6623', 'Running in production'],
+  ['blocked', 'B60205', 'Needs a human decision'],
+];
+export const STATES = STATE_TABLE.map(([s]) => s);
+
+/** The label for a state under a prefix. */
+export const stateLabel = (state, prefix = DEFAULT_PREFIX) => `${prefix}: ${state}`;
+export const stateLabels = (prefix = DEFAULT_PREFIX) => STATES.map((s) => stateLabel(s, prefix));
+
+/** Every jstack label under a prefix: [name, color, meaning]. Intent and spec labels are fixed. */
+export function labelTable(prefix = DEFAULT_PREFIX) {
+  return [
+    ['jstack:intent', '5319E7', 'Confirmed intent'],
+    ['jstack:spec', '1D76DB', 'Spec parent issue'],
+    ...STATE_TABLE.map(([s, color, meaning]) => [stateLabel(s, prefix), color, meaning]),
+  ];
+}
 
 /** Machine-allowed edges; `blocked` is reachable from anything except blocked. */
 export const EDGES = [
@@ -31,13 +43,14 @@ export const EDGES = [
 export function edgeError(from, to) {
   if (!STATES.includes(from)) return `unknown state ${from}`;
   if (!STATES.includes(to)) return `unknown state ${to}`;
-  if (to === 'approved') return 'jstack:approved is human only: add it on GitHub';
-  if (from === 'blocked') return 'moving a task out of jstack:blocked is human only';
+  if (to === 'approved') return 'approved is human only: add the label on GitHub';
+  if (from === 'blocked') return 'moving a task out of blocked is human only';
   if (to === 'blocked') return null;
   return EDGES.some(([a, b]) => a === from && b === to) ? null : `edge ${from} -> ${to} is not allowed`;
 }
 
-const short = (s) => String(s ?? '').replace(/^jstack:/, '');
+const prefixOf = (ctx) => ctx.prefix ?? DEFAULT_PREFIX;
+const short = (s) => String(s ?? '').replace(/^[^:]*:\s*/, '');
 
 // ---------- markers ----------
 
@@ -131,11 +144,11 @@ function readTask(ctx, n) {
   if (!ctx.isTrusted(issue.author?.login)) reason = `task author ${issue.author?.login} is not a trusted collaborator`;
   else if (!marker) reason = 'task body has no <!-- jstack:task spec=#N size=XS|S|M|L --> marker';
   else if (deps === null) reason = 'task body has no ## Dependencies section';
-  const states = labels.filter((l) => STATE_LABELS.includes(l)).map(short);
+  const states = labels.filter((l) => stateLabels(prefixOf(ctx)).includes(l)).map(short);
   let candidate = null;
   if (states.length === 1) candidate = states[0];
   else if (states.length === 2 && states.includes('planned') && states.includes('approved')) candidate = 'approved';
-  else if (!reason) reason = `expected exactly one state label, found: ${states.length ? states.map((s) => `jstack:${s}`).join(', ') : 'none'}`;
+  else if (!reason) reason = `expected exactly one state label, found: ${states.length ? states.map((s) => stateLabel(s, prefixOf(ctx))).join(', ') : 'none'}`;
   return { issue, labels, task, candidate, reason };
 }
 
@@ -147,12 +160,12 @@ export function approval(ctx, n) {
     const plan = newestTrusted(comments, ctx.isTrusted, (c) => c.body.includes(PLAN_MARKER));
     const events = ctx.ghPaginated(`repos/{owner}/{repo}/issues/${n}/events`);
     const approvals = events
-      .filter((e) => e.event === 'labeled' && e.label?.name === 'jstack:approved' && ctx.isTrusted(e.actor?.login))
+      .filter((e) => e.event === 'labeled' && e.label?.name === stateLabel('approved', prefixOf(ctx)) && ctx.isTrusted(e.actor?.login))
       .sort((a, b) => time(a.created_at) - time(b.created_at));
     const ev = approvals.at(-1);
     if (!plan) return fail('no trusted plan comment');
     const base = { planUrl: plan.url };
-    if (!ev) return fail('jstack:approved was not added by a trusted collaborator', base);
+    if (!ev) return fail(`${stateLabel('approved', prefixOf(ctx))} was not added by a trusted collaborator`, base);
     const at = time(ev.created_at);
     if (!(at > touched(plan))) return fail('the newest plan was posted or edited after the approval: re-approve it', { ...base, by: ev.actor.login, at: ev.created_at });
     return { ok: true, valid: true, by: ev.actor.login, at: ev.created_at, planUrl: plan.url, reason: null };
@@ -190,12 +203,12 @@ export function move(ctx, n, from, to, phase = null) {
   if (current !== f) return { ...out, reason: `task is not ${f}: ${s.ok ? `it is ${s.state}` : s.reason}` };
   try {
     const args = ['issue', 'edit', String(n)];
-    for (const l of s.labels.filter((x) => STATE_LABELS.includes(x))) args.push('--remove-label', l);
-    args.push('--add-label', `jstack:${t}`);
+    for (const l of s.labels.filter((x) => stateLabels(prefixOf(ctx)).includes(x))) args.push('--remove-label', l);
+    args.push('--add-label', stateLabel(t, prefixOf(ctx)));
     ctx.gh(args);
     const after = readTask(ctx, n);
-    const states = after.labels.filter((x) => STATE_LABELS.includes(x));
-    if (states.length !== 1 || states[0] !== `jstack:${t}`) return { ...out, labels: after.labels, reason: `labels after edit are ${states.join(', ') || 'none'}` };
+    const states = after.labels.filter((x) => stateLabels(prefixOf(ctx)).includes(x));
+    if (states.length !== 1 || states[0] !== stateLabel(t, prefixOf(ctx))) return { ...out, labels: after.labels, reason: `labels after edit are ${states.join(', ') || 'none'}` };
     return { ok: true, from: f, to: t, phase, labels: after.labels };
   } catch (err) {
     return { ...out, reason: `could not move: ${firstLine(err)}` };
@@ -302,10 +315,11 @@ export async function deploy(ctx, { workflow, sha, timeoutSec = 540, appearSec =
 /** `labels`: create or update every jstack label. */
 export function labels(ctx) {
   const failed = [];
-  for (const [name, color, desc] of LABELS) {
+  const table = labelTable(prefixOf(ctx));
+  for (const [name, color, desc] of table) {
     try { ctx.gh(['label', 'create', name, '--force', '--color', color, '--description', desc]); } catch (err) { failed.push(`${name}: ${firstLine(err)}`); }
   }
-  return { ok: failed.length === 0, labels: LABELS.map(([name, color, description]) => ({ name, color, description })), ...(failed.length ? { reason: failed.join('; ') } : {}) };
+  return { ok: failed.length === 0, labels: table.map(([name, color, description]) => ({ name, color, description })), ...(failed.length ? { reason: failed.join('; ') } : {}) };
 }
 
 /** `trusted --user L`. */
@@ -323,6 +337,11 @@ export async function main(argv, ctx = makeCtx()) {
   const task = toInt(a.task);
   const need = (v, name) => { if (v === null || v === undefined || v === true) throw new Error(`missing or bad --${name}`); return v; };
   try {
+    if (['labels', 'state', 'approval', 'move'].includes(cmd) && ctx.prefix === undefined) {
+      const cfg = loadConfig({ cwd: ctx.cwd, exec: ctx.exec });
+      if (!cfg.ok) return { ok: false, reason: `config: ${cfg.errors.join('; ')}` };
+      ctx.prefix = cfg.config.labels.prefix;
+    }
     switch (cmd) {
       case 'labels': return labels(ctx);
       case 'state': return state(ctx, need(task, 'task'));

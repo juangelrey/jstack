@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeCtx } from './lib.mjs';
 import {
-  LABELS, STATE_LABELS, edgeError, parseTaskMarker, parsePrMarker, parseVerdict, parseDependencies,
+  labelTable, stateLabels, edgeError, parseTaskMarker, parsePrMarker, parseVerdict, parseDependencies,
   newestTrusted, isTaskPr, summarizeVerdicts, main, deploy,
 } from './github.mjs';
 
@@ -11,6 +11,9 @@ const TRUSTED = new Set(['alice', 'bob']);
 const isTrusted = (l) => TRUSTED.has(l);
 const TASK_BODY = '<!-- jstack:task spec=#2 size=S -->\n## Description\nx\n\n## Dependencies\n- #4\n- #5\n';
 
+/** Trunk with no config, so labels use the default prefix. */
+const TRUNK = { 'repo view --json defaultBranchRef': 'main\n', 'fetch origin main': '', 'ls-tree': '' };
+
 /** Fake gh: `routes` maps a joined-args prefix to a value or function(args). */
 function fake(routes, calls = []) {
   const exec = (cmd, args) => {
@@ -18,7 +21,7 @@ function fake(routes, calls = []) {
     const key = args.join(' ');
     const perm = key.match(/^api repos\/\{owner\}\/\{repo\}\/collaborators\/([^/]+)\/permission/);
     if (perm) return TRUSTED.has(perm[1]) ? { code: 0, stdout: 'write\n', stderr: '' } : { code: 1, stdout: '', stderr: 'HTTP 404' };
-    for (const [prefix, v] of Object.entries(routes)) {
+    for (const [prefix, v] of Object.entries({ ...routes, ...TRUNK, ...routes })) {
       if (key.startsWith(prefix)) {
         const out = typeof v === 'function' ? v(args) : v;
         if (out instanceof Error) return { code: 1, stdout: '', stderr: out.message };
@@ -36,11 +39,22 @@ const issue = (labels, extra = {}) => ({
 });
 const at = (m) => `2026-10-26T10:${String(m).padStart(2, '0')}:00Z`;
 const planComment = (m, login = 'alice') => ({ user: { login }, body: '<!-- jstack:plan -->\n## Plan', created_at: at(m), updated_at: at(m), html_url: `u${m}` });
-const approvedEvent = (m, login = 'bob') => ({ event: 'labeled', label: { name: 'jstack:approved' }, actor: { login }, created_at: at(m) });
+const approvedEvent = (m, login = 'bob') => ({ event: 'labeled', label: { name: 'state: approved' }, actor: { login }, created_at: at(m) });
 
 test('labels table has ten labels and eight state labels', () => {
-  assert.equal(LABELS.length, 10);
-  assert.deepEqual(STATE_LABELS, ['jstack:ready', 'jstack:planned', 'jstack:approved', 'jstack:implementing', 'jstack:proving', 'jstack:landed', 'jstack:deployed', 'jstack:blocked']);
+  assert.equal(labelTable().length, 10);
+  assert.deepEqual(stateLabels(), ['state: ready', 'state: planned', 'state: approved', 'state: implementing', 'state: proving', 'state: landed', 'state: deployed', 'state: blocked']);
+  assert.equal(labelTable('flow')[4][0], 'flow: approved');
+});
+
+test('state labels follow labels.prefix from the trunk config', async () => {
+  const routes = { 'issue view 9': issue(['flow: ready']), 'ls-tree': '.jstack/config.yml\n', 'show origin/main:.jstack/config.yml': 'version: 1\nlabels:\n  prefix: flow\n' };
+  let r = await main(['state', '--task', '9'], fake(routes));
+  assert.equal(r.ok, true);
+  assert.equal(r.state, 'ready');
+  r = await main(['state', '--task', '9'], fake({ ...routes, 'show origin/main:.jstack/config.yml': 'labels:\n  prefix: "a,b"\n' }));
+  assert.equal(r.ok, false);
+  assert.match(r.reason, /labels.prefix/);
 });
 
 test('edge rules', () => {
@@ -99,18 +113,18 @@ test('summarizeVerdicts: newest trusted, FAILs since newest trusted block', () =
 });
 
 test('state: single label, untrusted author, missing marker, multiple labels', async () => {
-  let r = await main(['state', '--task', '9'], fake({ 'issue view 9': issue(['jstack:ready', 'bug']) }));
+  let r = await main(['state', '--task', '9'], fake({ 'issue view 9': issue(['state: ready', 'bug']) }));
   assert.equal(r.ok, true);
   assert.equal(r.state, 'ready');
   assert.deepEqual(r.task, { number: 9, title: 'Task', spec: 2, size: 'S', dependencies: [4, 5], open: true });
-  r = await main(['state', '--task', '9'], fake({ 'issue view 9': issue(['jstack:ready'], { author: { login: 'mallory' } }) }));
+  r = await main(['state', '--task', '9'], fake({ 'issue view 9': issue(['state: ready'], { author: { login: 'mallory' } }) }));
   assert.equal(r.ok, false);
   assert.match(r.reason, /not a trusted/);
-  r = await main(['state', '--task', '9'], fake({ 'issue view 9': issue(['jstack:ready'], { body: 'hi' }) }));
+  r = await main(['state', '--task', '9'], fake({ 'issue view 9': issue(['state: ready'], { body: 'hi' }) }));
   assert.match(r.reason, /marker/);
-  r = await main(['state', '--task', '9'], fake({ 'issue view 9': issue(['jstack:ready', 'jstack:proving']) }));
+  r = await main(['state', '--task', '9'], fake({ 'issue view 9': issue(['state: ready', 'state: proving']) }));
   assert.equal(r.ok, false);
-  assert.match(r.reason, /jstack:ready, jstack:proving/);
+  assert.match(r.reason, /state: ready, state: proving/);
   r = await main(['state', '--task', '9'], fake({ 'issue view 9': issue([]) }));
   assert.match(r.reason, /none/);
 });
@@ -145,7 +159,7 @@ test('approval: valid only after newest trusted plan, by a trusted actor', async
 });
 
 test('state: planned+approved needs a valid approval', async () => {
-  const base = { 'issue view 9': issue(['jstack:planned', 'jstack:approved']), 'api repos/{owner}/{repo}/issues/9/comments': [planComment(1)] };
+  const base = { 'issue view 9': issue(['state: planned', 'state: approved']), 'api repos/{owner}/{repo}/issues/9/comments': [planComment(1)] };
   let r = await main(['state', '--task', '9'], fake({ ...base, 'api repos/{owner}/{repo}/issues/9/events': [approvedEvent(2)] }));
   assert.equal(r.ok, true);
   assert.equal(r.state, 'approved');
@@ -161,25 +175,25 @@ test('move: refuses human-only edges, verifies state, one edit, re-reads', async
   assert.match(r.reason, /human only/);
 
   const calls = [];
-  let labels = ['jstack:planned', 'jstack:approved'];
+  let labels = ['state: planned', 'state: approved'];
   const ctx = fake({
     'issue view 9': () => issue(labels),
-    'issue edit 9': () => { labels = ['jstack:implementing']; return ''; },
+    'issue edit 9': () => { labels = ['state: implementing']; return ''; },
     'api repos/{owner}/{repo}/issues/9/comments': [planComment(1)],
     'api repos/{owner}/{repo}/issues/9/events': [approvedEvent(2)],
   }, calls);
   r = await main(['move', '--task', '9', '--from', 'approved', '--to', 'implementing'], ctx);
   assert.equal(r.ok, true, r.reason);
-  assert.deepEqual(r.labels, ['jstack:implementing']);
+  assert.deepEqual(r.labels, ['state: implementing']);
   const edits = calls.filter((c) => c.startsWith('gh issue edit'));
-  assert.deepEqual(edits, ['gh issue edit 9 --remove-label jstack:planned --remove-label jstack:approved --add-label jstack:implementing']);
+  assert.deepEqual(edits, ['gh issue edit 9 --remove-label state: planned --remove-label state: approved --add-label state: implementing']);
 
-  r = await main(['move', '--task', '9', '--from', 'ready', '--to', 'planned'], fake({ 'issue view 9': issue(['jstack:proving']) }));
+  r = await main(['move', '--task', '9', '--from', 'ready', '--to', 'planned'], fake({ 'issue view 9': issue(['state: proving']) }));
   assert.equal(r.ok, false);
   assert.match(r.reason, /not ready/);
 
   // edit did not stick
-  r = await main(['move', '--task', '9', '--from', 'ready', '--to', 'planned'], fake({ 'issue view 9': issue(['jstack:ready']), 'issue edit 9': '' }));
+  r = await main(['move', '--task', '9', '--from', 'ready', '--to', 'planned'], fake({ 'issue view 9': issue(['state: ready']), 'issue edit 9': '' }));
   assert.equal(r.ok, false);
   assert.match(r.reason, /after edit/);
 });
@@ -253,8 +267,10 @@ test('labels and trusted commands', async () => {
   const calls = [];
   const r = await main(['labels'], fake({ 'label create': '' }, calls));
   assert.equal(r.ok, true);
-  assert.equal(calls.length, 10);
-  assert.ok(calls[0].includes('--force --color 5319E7'));
+  const created = calls.filter((c) => c.startsWith('gh label create'));
+  assert.equal(created.length, 10);
+  assert.ok(created[0].includes('--force --color 5319E7'));
+  assert.ok(created[4].startsWith('gh label create state: approved '));
   assert.deepEqual(await main(['trusted', '--user', 'alice'], fake({})), { ok: true, permission: 'write' });
   assert.deepEqual(await main(['trusted', '--user', 'mallory'], fake({})), { ok: false, permission: null });
   assert.equal((await main(['bogus'], fake({}))).ok, false);
