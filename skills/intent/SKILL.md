@@ -11,6 +11,8 @@ Turn a rough idea into a **confirmed intent**: a statement of what the target re
 
 The rough idea is: $ARGUMENTS
 
+Read `../../reference/contract.md` (relative to this skill's base directory) first: it defines the labels and artifacts every phase shares.
+
 ## 1. Ground yourself
 
 Read the target repo before asking anything: `README`, `GLOSSARY.md`, `docs/adr/`, and the open intents (`gh issue list --label jstack:intent`). If an open intent already covers this idea, show it and ask whether to refine that one instead of filing a new one.
@@ -70,4 +72,4 @@ gh label create jstack:intent --color 5319E7 --description "Confirmed intent" --
 gh issue create --label jstack:intent --title "<outcome, under 70 characters>" --body-file <file with the confirmed text>
 ```
 
-Done when the issue exists. Reply with its URL.
+Done when the issue exists. Reply with its URL and name the next phase: `/jstack:shape #<number>`.

@@ -39,3 +39,9 @@ Read Addy Osmani's "Software Factories, Light and Dark", then grilled the design
 - Make renamed to Implement. Prove gains an independent verifier (from Lauren Tan's pstack) and a security sub-skill; Implement gains a refactor sub-skill.
 - Four human gates: intent, task list, plan, merge. Every gate runs checks; a human is added on top, never instead.
 - Lesson: Avast WebShield blocked api.anthropic.com mid-run and killed four research subagents. Fixed with an exception.
+
+## Update: all phase skills drafted
+- Wrote `reference/contract.md` first as the single interface, then four subagents built the phases in parallel against it.
+- Each builder reported contract gaps (filing order, PR lookup, default branch, head moving during Prove...). All were folded back into the contract, so it is the one place those rules live.
+- Integration bugs found in review: `Closes #N` in the PR would close the task at merge, before deploy. Three different PR lookups. Subagents never received the plugin root. The security reviewer had no Skill tool to load the security skill.
+- Lesson: parallel builders against a shared contract work, but the contract only becomes complete through their gap reports.
