@@ -47,10 +47,10 @@ Merge commit: `github.mjs pr --task <task> --state merged`, then `gh pr view <pr
 **Otherwise**: `node <jstack root>/scripts/github.mjs deploy --workflow "<deploy_workflow>" --sha <merge commit> --timeout 540`, repeated while `pending`, six runs at most.
 
 - `success`: move `landed → deployed`, close the task (`--reason completed`). Go to 6.
-- anything else: block with `phase=ship` and the run URL, offering: rerun the deploy, then set `jstack:landed` and run `/jstack:ship #<task>`; revert and set `jstack:ready`; or fix forward with a new task via `/jstack:shape`. If the PR has a trusted `jstack:automerge` comment, first open the revert PR per merging.md.
+- anything else: block with `phase=ship` and the run URL, offering: rerun the deploy, then set `<prefix>: landed` and run `/jstack:ship #<task>`; revert and set `<prefix>: ready`; or fix forward with a new task via `/jstack:shape`. If the PR has a trusted `jstack:automerge` comment, first open the revert PR per merging.md.
 
 ## 6. Close the spec
 
-A task is done when closed with `jstack:deployed`, or with `jstack:landed` in a repo with no deploy workflow. When every task in the spec's `## Tasks` is done: `gh issue close <spec> --reason completed`.
+A task is done when closed as `deployed`, or as `landed` in a repo with no deploy workflow. When every task in the spec's `## Tasks` is done: `gh issue close <spec> --reason completed`.
 
 Done when the spec is closed, or you have named the tasks that remain.

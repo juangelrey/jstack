@@ -14,8 +14,13 @@ test('segments split on shell operators and respect quotes', () => {
   assert.deepEqual(segments(`a "b c" 'd;e' && f | g; h\\ i $(j k)`), [['a', 'b c', 'd;e'], ['f'], ['g'], ['h i'], ['j', 'k']]);
 });
 
-test('blocks adding jstack:approved in any common form', () => {
+test('blocks adding the approved label in any common form, under any prefix', () => {
   for (const c of [
+    'gh issue edit 5 --add-label "state: approved"',
+    'gh issue edit 5 --add-label "bug,state: approved"',
+    "gh issue edit 5 --add-label='flow: approved'",
+    'gh api repos/o/r/issues/5/labels -f "labels[]=state: approved"',
+    'gh api -X POST repos/o/r/issues/5/labels --raw-field labels[]=state%3A%20approved',
     'gh issue edit 5 --add-label jstack:approved',
     'gh issue edit 5 --add-label "bug,jstack:approved"',
     'gh issue edit 5 --add-label=jstack:approved',
@@ -28,8 +33,11 @@ test('blocks adding jstack:approved in any common form', () => {
   ]) assert.equal(checkBash(c), REASONS.approved, c);
 });
 
-test('allows reading or removing jstack:approved, and normal moves', () => {
+test('allows reading or removing the approved label, and normal moves', () => {
   for (const c of [
+    'gh issue edit 5 --remove-label "state: planned" --remove-label "state: approved" --add-label "state: implementing"',
+    'gh issue edit 5 --add-label approved',
+    'gh label create "state: approved" --force --color 0E8A16',
     'gh issue edit 5 --remove-label jstack:planned --remove-label jstack:approved --add-label jstack:implementing',
     'gh issue list --label jstack:approved',
     'gh api repos/o/r/issues?labels=jstack:approved',
@@ -39,7 +47,10 @@ test('allows reading or removing jstack:approved, and normal moves', () => {
   ]) assert.equal(checkBash(c), null, c);
 });
 
-test('blocks removing jstack:blocked', () => {
+test('blocks removing the blocked label', () => {
+  assert.equal(checkBash('gh issue edit 5 --remove-label "state: blocked" --add-label "state: ready"'), REASONS.blocked);
+  assert.equal(checkBash('gh api -X DELETE "repos/o/r/issues/5/labels/flow%3A%20blocked"'), REASONS.blocked);
+  assert.equal(checkBash('gh issue edit 5 --remove-label "state: proving" --add-label "state: blocked"'), null);
   assert.equal(checkBash('gh issue edit 5 --remove-label jstack:blocked --add-label jstack:ready'), REASONS.blocked);
   assert.equal(checkBash('gh api -X DELETE repos/o/r/issues/5/labels/jstack%3Ablocked'), REASONS.blocked);
   assert.equal(checkBash('gh issue edit 5 --remove-label jstack:proving --add-label jstack:blocked'), null);

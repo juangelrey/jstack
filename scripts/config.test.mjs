@@ -26,7 +26,7 @@ test('defaults cover every key', () => {
   assert.deepEqual(d, {
     version: 1, setup: [], checks: [], protected_paths: [...BUILTIN_PROTECTED], protected_paths_configured: [], rubric: null,
     limits: { max_retries: 3, max_plan_steps: 10, check_timeout_minutes: 15, max_open_prs: 1 },
-    ship: { deploy_workflow: null }, autonomy: { ship_two_way: 'lit', max_lines: 200 }, human_paths: [], models: {},
+    ship: { deploy_workflow: null }, autonomy: { ship_two_way: 'lit', max_lines: 200 }, human_paths: [], labels: { prefix: 'state' }, models: {},
   });
   assert.deepEqual(parseConfig('').config, d);
 });

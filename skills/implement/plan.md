@@ -13,4 +13,4 @@
 
 3. **Post**: `gh issue comment <task> --body-file <plan file>`. A first plan then moves `ready → planned`; a re-plan stays `planned`.
 
-Done when the plan is posted and the state is `planned`. Tell the human to review it, then comment feedback and rerun `/jstack:implement #<task>`, or add `jstack:approved` on GitHub.
+Done when the plan is posted and the state is `planned`. Tell the human to review it, then comment feedback and rerun `/jstack:implement #<task>`, or add `<prefix>: approved` on GitHub.

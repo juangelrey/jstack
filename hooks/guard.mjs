@@ -8,8 +8,8 @@ import { pathToFileURL } from 'node:url';
 import { parseConfig, matchingGlobs, BUILTIN_PROTECTED } from '../scripts/config.mjs';
 
 export const REASONS = {
-  approved: 'jstack:approved is human only: add it on GitHub',
-  blocked: 'moving a task out of jstack:blocked is human only',
+  approved: 'the approved label is human only: add it on GitHub',
+  blocked: 'moving a task out of blocked is human only',
   bypass: 'never bypass signing or hooks',
   merge: 'merge with --match-head-commit <proven sha>',
 };
@@ -47,7 +47,10 @@ export function segments(command) {
   return segs.filter((x) => x.length);
 }
 
-const decode = (t) => String(t).replace(/%3a/gi, ':');
+const decode = (t) => String(t).replace(/%3a/gi, ':').replace(/%20|\+/g, ' ');
+/** A state label under any prefix, since `labels.prefix` varies per repo: `state: approved`, `jstack:approved`. */
+const isStateLabel = (state) => (l) => new RegExp(`^[\\w-]+\\s*:\\s*${state}$`).test(l);
+const mentionsStateLabel = (state, text) => new RegExp(`[\\w-]+\\s*:\\s*${state}\\b`).test(text);
 const base = (t) => basename(String(t).replace(/\\/g, '/')).toLowerCase().replace(/\.exe$/, '');
 /** Values given to any of `flags` (`--f v`, `--f=v`), comma-split and lowercased. */
 function flagValues(tokens, flags) {
@@ -65,14 +68,14 @@ function flagValues(tokens, flags) {
 function checkGh(t) {
   const sub = t.filter((x) => !x.startsWith('-'));
   const adding = flagValues(t, sub.includes('create') ? ['--add-label', '--label', '-l'] : ['--add-label']);
-  if (adding.includes('jstack:approved')) return REASONS.approved;
-  if (flagValues(t, ['--remove-label']).includes('jstack:blocked')) return REASONS.blocked;
+  if (adding.some(isStateLabel('approved'))) return REASONS.approved;
+  if (flagValues(t, ['--remove-label']).some(isStateLabel('blocked'))) return REASONS.blocked;
   const text = decode(t.join(' ')).toLowerCase();
   if (sub[0] === 'api') {
     const hasFields = t.some((x) => /^(-f|-F|--field|--raw-field|--input)(=|$)/.test(x));
     const method = flagValues(t, ['-X', '--method'])[0] ?? (hasFields ? 'post' : 'get');
-    if (/labels/.test(text) && text.includes('jstack:approved') && ['post', 'put', 'patch'].includes(method)) return REASONS.approved;
-    if (/labels/.test(text) && text.includes('jstack:blocked') && method === 'delete') return REASONS.blocked;
+    if (/labels/.test(text) && mentionsStateLabel('approved', text) && ['post', 'put', 'patch'].includes(method)) return REASONS.approved;
+    if (/labels/.test(text) && mentionsStateLabel('blocked', text) && method === 'delete') return REASONS.blocked;
     if (/pulls\/\d+\/merge\b/.test(text) && !/\bsha=/.test(text)) return REASONS.merge;
   }
   if (sub[0] === 'pr' && sub[1] === 'merge' && !t.some((x) => x === '--match-head-commit' || x.startsWith('--match-head-commit='))) return REASONS.merge;
@@ -136,7 +139,7 @@ export function checkEdit(file, gitFn = git, read = (p) => readFileSync(p, 'utf8
 }
 
 const EDIT_TOOLS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit']);
-const GUARDED = /jstack:approved|jstack%3aapproved|jstack:blocked|jstack%3ablocked|--no-verify|--no-gpg-sign|gpgsign|hookspath|pr\s+merge|\/merge/i;
+const GUARDED = /(:|%3a)(\s|%20|\+)*(approved|blocked)|--no-verify|--no-gpg-sign|gpgsign|hookspath|pr\s+merge|\/merge/i;
 
 /** Decide for one hook payload (raw stdin text). Returns {code, reason}. */
 export function decide(raw, deps = {}) {

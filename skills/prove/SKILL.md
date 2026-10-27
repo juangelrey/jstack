@@ -53,7 +53,7 @@ gh pr comment <pr> --body-file <file>
 
 - **PASS**: stays `proving`; go to 5.
 - **ERROR**: stays `proving`, costs no attempt. Tell the human which gate errored and to rerun once fixed.
-- **FAIL**: by `failCount` from `github.mjs verdict`: up to `limits.max_retries`, move to `implementing` and point to `/jstack:implement #<task>`. Above it, block with `phase=prove`, offering: edit the task and set `jstack:implementing` for a fresh budget; close the PR, delete its branch and set `jstack:ready` to re-plan; or close PR and task as not planned.
+- **FAIL**: by `failCount` from `github.mjs verdict`: up to `limits.max_retries`, move to `implementing` and point to `/jstack:implement #<task>`. Above it, block with `phase=prove`, offering: edit the task and set `<prefix>: implementing` for a fresh budget; close the PR, delete its branch and set `<prefix>: ready` to re-plan; or close PR and task as not planned.
 
 ## 5. Auto-merge (PASS only)
 

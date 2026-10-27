@@ -1,6 +1,6 @@
 ---
 name: planner
-description: Drafts the implementation plan for one jstack task issue. Use from the Implement phase when a task is jstack:ready, or jstack:planned with feedback, and needs a plan comment. Give it the task issue number and the jstack root.
+description: Drafts the implementation plan for one jstack task issue. Use from the Implement phase when a task is ready, or planned with feedback, and needs a plan comment. Give it the task issue number and the jstack root.
 tools: Read, Grep, Glob, Bash
 model: opus
 ---

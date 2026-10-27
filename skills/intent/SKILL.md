@@ -15,7 +15,7 @@ Read `<jstack root>/reference/contract.md` first (`<jstack root>` is two directo
 
 ## 1. Ground yourself
 
-Read the target repo before asking anything: `README`, and `GLOSSARY.md` and `docs/adr/` if present, and the open intents (`gh issue list --label jstack:intent --state open`). If an open intent already covers this idea, show it and ask whether to refine that one instead of filing a new one.
+Read the target repo before asking anything: `README`, and `GLOSSARY.md` and `docs/adr/` if present, and the open intents (`gh issue list --label "<prefix>: intent" --state open`). If an open intent already covers this idea, show it and ask whether to refine that one instead of filing a new one.
 
 Facts are your job: anything the repo, its docs or `gh` can answer, look up yourself. Decisions are the human's.
 
@@ -69,7 +69,7 @@ Make sure the labels exist, then file the issue with the confirmed text as its b
 
 ```sh
 node <jstack root>/scripts/github.mjs labels
-gh issue create --label jstack:intent --title "<outcome, under 70 characters>" --body-file <file with the confirmed text>
+gh issue create --label "<prefix>: intent" --title "<outcome, under 70 characters>" --body-file <file with the confirmed text>
 ```
 
 Done when the issue exists. Reply with its URL and name the next phase, in a fresh session: `/jstack:shape #<number>`.

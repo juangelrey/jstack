@@ -32,7 +32,7 @@ Checks: `node <jstack root>/scripts/checks.mjs --cwd <worktree>` runs `setup`, t
 /jstack:implement #N
    first run   ──► plan comment                            (task: planned)
    🧑 human comments feedback ──► rerun replans             (task: planned)
-   🧑 human adds jstack:approved                             (task: approved)
+   🧑 human adds state: approved                             (task: approved)
    second run  ──► branch + PR                             (task: implementing → proving)
 /jstack:prove #N ──► verdict comment on the PR
    FAIL        ──► back to Implement                       (task: implementing)
@@ -45,7 +45,7 @@ Checks: `node <jstack root>/scripts/checks.mjs --cwd <worktree>` runs `setup`, t
 
 ## Labels
 
-Each task carries exactly one state label `jstack:<state>`. Phases read it with `github.mjs state --task <n>` and change it with `github.mjs move --task <n> --from <state> --to <state>`, which enforces these edges:
+Each task carries exactly one state label `<prefix>: <state>`, with `<prefix>` from `labels.prefix` in `config.mjs` output (default `state`, so `state: approved`); intent and spec issues carry `<prefix>: intent` and `<prefix>: spec`. Set it before the first task: tasks keep the labels they were filed with. Phases read the state with `github.mjs state --task <n>` and change it with `github.mjs move --task <n> --from <state> --to <state>`, which enforces these edges:
 
 ```
 ready → planned → approved → implementing → proving → landed → deployed
@@ -55,15 +55,15 @@ proving → implementing        (Prove FAIL)
 blocked → <any>               (human only)
 ```
 
-`state` reports `approved` only while the approval is valid: a trusted user added `jstack:approved` after the newest plan. `github.mjs labels` creates every label. A phase that finds a state it does not accept says which phase the task needs.
+`state` reports `approved` only while the approval is valid: a trusted user added `<prefix>: approved` after the newest plan. `github.mjs labels` creates every label. A phase that finds a state it does not accept says which phase the task needs.
 
 ## Artifacts
 
 All in GitHub, marked with HTML comments. Write each to a file and post it only once `node <jstack root>/scripts/validate.mjs <kind> --file <file>` passes.
 
-**Intent issue**, label `jstack:intent`: sections `Outcome`, `Why`, `Who benefits`, `Success signals`, `In scope`, `Out of scope`, `Constraints`, `Known unknowns`, each non-empty (`None` allowed).
+**Intent issue**, label `<prefix>: intent`: sections `Outcome`, `Why`, `Who benefits`, `Success signals`, `In scope`, `Out of scope`, `Constraints`, `Known unknowns`, each non-empty (`None` allowed).
 
-**Spec issue**, label `jstack:spec`, title `Spec: <outcome>`, linked to its tasks as sub-issues:
+**Spec issue**, label `<prefix>: spec`, title `Spec: <outcome>`, linked to its tasks as sub-issues:
 
 ```md
 <!-- jstack:spec intent=#<intent> -->
@@ -163,7 +163,7 @@ A phase retries a failing step up to `limits.max_retries` times per run, then bl
 |---|---|---|---|
 | Intent | intent | `validate.mjs intent` | confirming the full text in chat |
 | Task list | shape | `validate.mjs spec` and `task` | confirming the full spec and list in chat |
-| Plan | implement | `validate.mjs plan` | adding `jstack:approved` on GitHub |
+| Plan | implement | `validate.mjs plan` | adding `<prefix>: approved` on GitHub |
 | Merge | ship | trusted PASS verdict for the head, GitHub checks | typing "merge" in chat, or the auto-merge script ([merging.md](merging.md)) |
 
-A hook enforces the human-only moves: agents never add `jstack:approved` or remove `jstack:blocked`.
+A hook enforces the human-only moves: agents never add `<prefix>: approved` or remove `<prefix>: blocked`.
