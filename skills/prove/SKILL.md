@@ -29,7 +29,7 @@ git worktree remove --force <tmp dir>
 
 Checks: `pass: false` is FAIL (quote failing commands and `outputTail`); a `(config)` result or a crash is ERROR.
 
-Then, in one message, start `jstack:reviewer`, `jstack:verifier` and `jstack:security-reviewer`. Each gets only the task, PR, SHA and `<jstack root>`: no summary, opinion or earlier verdict (ADR-0005).
+Then, in one message, start `jstack:reviewer`, `jstack:verifier` and `jstack:security-reviewer`. Each gets only the task, PR, SHA and `<jstack root>`: no summary, opinion or earlier verdict.
 
 Done when you have four results. A subagent that crashes, reports "head moved" or returns no result line is ERROR.
 
