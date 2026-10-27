@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Decides whether a proven PR may merge without a human (ADR-0008) and prints one JSON object.
+// Decides whether a proven PR may merge without a human and prints one JSON object.
 // Fails closed: anything it cannot evaluate makes the PR ineligible. Only trusted authors count.
 import { resolve } from 'node:path';
 import { defaultExec, emit, firstLine, isMain, makeCtx, parseArgs, sleep as realSleep, toInt } from './lib.mjs';

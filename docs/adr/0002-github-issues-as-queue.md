@@ -1,3 +1,0 @@
-# GitHub Issues is the work queue and labels are the state machine
-
-All workflow artifacts live in GitHub: an intent is an issue, a spec is a parent issue whose task list links its tasks, each task is a sub-issue, a plan is a comment on the task issue, and review happens on the PR. Task state is a fixed graph of state labels, `state: <state>` with the prefix set by `labels.prefix` (ready → planned → approved → implementing → proving → landed → deployed, plus blocked), and each phase may only move an issue along an allowed edge. This makes control flow explicit and auditable, and gives GitHub Actions a natural trigger later. The cost is lock-in to GitHub. In the target repo, only its config (`.jstack/`), ADRs and glossary live as files.
