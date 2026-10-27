@@ -119,7 +119,7 @@ Autonomy mode where a loop's output moves on verified only by checks, with no hu
 _Avoid_: Autonomous, unattended, lights-out
 
 **Promotion**:
-Moving a loop from lit to dark, justified in an ADR showing its checks are cheap, fast, consistent and hard to game.
+Moving a loop from lit to dark, granted in the repo's config, and only when its checks are cheap, fast, consistent and hard to game.
 _Avoid_: Automation, graduation
 
 **Back pressure**:

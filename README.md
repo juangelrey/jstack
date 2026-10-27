@@ -2,7 +2,7 @@
 
 A stack-agnostic Claude Code plugin that runs a **lit-by-default software factory**: Intent → Shape → Implement → Prove → Ship, driven by GitHub Issues, with human gates at intent, task list, plan and merge.
 
-Built as a learning project. See `docs/adr/` for decisions and `docs/journal/` for lessons.
+Built as a learning project.
 
 Status: v0, all phase skills drafted, not yet run end to end.
 
@@ -16,7 +16,7 @@ Status: v0, all phase skills drafted, not yet run end to end.
 | `/jstack:prove #<task>` | Prove | task + PR | verdict comment from checks, reviewer, verifier and security reviewer |
 | `/jstack:ship #<task>` | Ship | proven PR | merged after you say "merge", then deployed |
 
-Run each command in a fresh session (`/clear` between phases). A repo can grant auto-merge of two-way-door PRs (ADR-0008); Prove then merges eligible PRs itself.
+Run each command in a fresh session (`/clear` between phases). A repo can grant auto-merge of two-way-door PRs; Prove then merges eligible PRs itself.
 
 ## Set up a target repo
 

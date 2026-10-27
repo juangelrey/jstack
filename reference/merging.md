@@ -13,7 +13,7 @@ gh pr merge <pr> --squash --delete-branch --match-head-commit <proven sha> --sub
 
 A failure because the head moved sends the task back to `/jstack:prove`.
 
-## Auto-merge (ADR-0008)
+## Auto-merge
 
 Granted per repo by `autonomy.ship_two_way: dark`. Only the script decides; its `reasons` say why not:
 
@@ -29,7 +29,7 @@ Prove runs it after a PASS verdict:
 
 ```md
 <!-- jstack:automerge sha=<proven sha> -->
-## Auto-merged (ADR-0008)
+## Auto-merged
 <the script's JSON output>
 ```
 
