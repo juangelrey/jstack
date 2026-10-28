@@ -13,4 +13,6 @@
 
 3. **Post**: `gh issue comment <task> --body-file <plan file>`. A first plan then moves `ready → planned`; a re-plan stays `planned`.
 
-Done when the plan is posted and the state is `planned`. Tell the human to review it, then comment feedback and rerun `/jstack:implement #<task>`, or add `<prefix>: approved` on GitHub.
+4. **Charter**: `github.mjs state --task <task>`. `approved` means the charter cleared the plan: continue with [build.md](build.md) in this run.
+
+Done when the plan is posted and the state is `planned` or `approved`. If `planned`, tell the human to review it, then comment feedback and rerun `/jstack:implement #<task>`, or add `<prefix>: approved` on GitHub; quote `charter.reasons` when present, so they know why it needs them.

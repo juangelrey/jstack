@@ -14,7 +14,7 @@ const SHA = 'c'.repeat(40);
 
 const INTENT = '## Outcome\nA\n## Why\nB\n## Who benefits\nC\n## Success signals\nD\n## In scope\nE\n## Out of scope\nNone\n## Constraints\nG\n## Known unknowns\nNone\n';
 const TASK = '<!-- jstack:task spec=#2 size=S -->\n## Description\nslice\n\n## Acceptance criteria\n- [ ] one\n- [ ] two\n\n## Verification steps\n1. open it\n\n## Dependencies\n- #3\n';
-const PLAN = '<!-- jstack:plan -->\n## Plan\n**Goal**: g\n**Files**: a.js\n**Tests first**:\n- t1\n- t2\n**Steps**:\n1. a\n2. b\n**Risks**: none\n**Out of scope**: x\n';
+const PLAN = '<!-- jstack:plan -->\n## Plan\n**Goal**: g\n**Files**: a.js\n**Tests first**:\n- t1\n- t2\n**Steps**:\n1. a\n2. b\n**Risks**: none\n**Door**: two-way\n**New dependencies**: None\n**Existing tests changed**: None\n**Out of scope**: x\n';
 const PR = '<!-- jstack:pr task=#9 -->\nTask: #9\n\n## Summary\ns\n\n## Evidence\ne\n\n## Merge danger\ntwo-way door: copy only\n';
 const verdictText = ({ result = 'PASS', door = 'two-way', verify = 'machine', checks = 'PASS', review = 'PASS', verifier = 'PASS', security = 'PASS', tdoor = door, sha = SHA } = {}) =>
   `<!-- jstack:verdict sha=${sha} result=${result} door=${door} verify=${verify} -->\n## Prove: ${result}\n| Gate | Result |\n|---|---|\n| Checks | ${checks} |\n| Review | ${review} |\n| Verifier | ${verifier} |\n| Security | ${security} |\n| Door (reviewer) | ${tdoor} |\n`;
@@ -60,8 +60,10 @@ test('plan: marker, fields, steps, tests vs criteria, length', () => {
   assert.match(validatePlan(PLAN.replace('- t2\n', ''), { maxSteps: 10, taskText: TASK }).join(), /fewer than/);
   const semi = PLAN.replace('**Tests first**:\n- t1\n- t2\n', '**Tests first**: t1; t2\n');
   assert.deepEqual(validatePlan(semi, { maxSteps: 10, taskText: TASK }), []);
-  const headings = '<!-- jstack:plan -->\n## Goal\ng\n## Files\nf\n## Tests first\n1. a\n2. b\n## Steps\n1. s\n## Risks\nr\n## Out of scope\no\n';
+  const headings = '<!-- jstack:plan -->\n## Goal\ng\n## Files\nf\n## Tests first\n1. a\n2. b\n## Steps\n1. s\n## Risks\nr\n## Door\ntwo-way door\n## New dependencies\nNone\n## Existing tests changed\nNone\n## Out of scope\no\n';
   assert.deepEqual(validatePlan(headings, { maxSteps: 3, taskText: TASK }), []);
+  assert.match(validatePlan(PLAN.replace('two-way', 'maybe'), { maxSteps: 10, taskText: TASK }).join(), /Door must start/);
+  assert.match(validatePlan(PLAN.replace('**Door**: two-way\n', ''), { maxSteps: 10, taskText: TASK }).join(), /missing Door/);
   const long = PLAN + 'x\n'.repeat(260);
   assert.match(validatePlan(long, { maxSteps: 10, taskText: TASK }).join(), /over 250/);
 });

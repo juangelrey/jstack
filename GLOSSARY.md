@@ -61,8 +61,16 @@ A vertical slice of a spec that delivers working, testable functionality and mov
 _Avoid_: Ticket, slice, story, sub-issue
 
 **Plan**:
-A short, human-approvable description of how one task will be implemented: goal, files, tests first, numbered steps, risks, out of scope.
+A short, human-approvable description of how one task will be implemented: goal, files, tests first, numbered steps, risks, door, new dependencies, existing tests changed, out of scope.
 _Avoid_: Design, approach
+
+**Charter**:
+The repo's rules for which plans may build without a human approval: small, two-way, no new dependencies, no edits to existing tests, no human-only paths. Granted by `autonomy.plan: dark`.
+_Avoid_: Policy, rules
+
+**Drift**:
+A PR changing files its plan did not declare, or existing tests its plan did not name. Found by Prove; fails the Checks gate.
+_Avoid_: Scope creep
 
 ## Gates
 
@@ -75,7 +83,7 @@ A verification run by a machine whose result does not depend on who wrote the ch
 _Avoid_: Test, validation
 
 **Approval**:
-A human clearing a gate.
+A human clearing a gate. A plan the charter clears needs none.
 _Avoid_: Sign-off, review
 
 **Review**:

@@ -92,7 +92,7 @@ export function validateTask(text, { allowL = false, known = null } = {}) {
 /** Acceptance criteria count in a task body. */
 export const acceptanceCount = (taskText) => checkboxes(sections(taskText).find((s) => /^acceptance criteria$/i.test(s.name))?.body).length;
 
-const PLAN_FIELDS = ['Goal', 'Files', 'Tests first', 'Steps', 'Risks', 'Out of scope'];
+const PLAN_FIELDS = ['Goal', 'Files', 'Tests first', 'Steps', 'Risks', 'Door', 'New dependencies', 'Existing tests changed', 'Out of scope'];
 
 /** Plan fields as `**Name**:` labels or `##`/`###` headings: {name: body}. */
 export function planFields(text) {
@@ -113,7 +113,7 @@ export function planFields(text) {
   return out;
 }
 
-/** Plan comment: marker first, all fields, step count, tests >= acceptance criteria, <= 250 lines. */
+/** Plan comment: marker first, all fields, door, step count, tests >= acceptance criteria, <= 250 lines. */
 export function validatePlan(text, { maxSteps, taskText }) {
   const errors = [];
   const all = String(text).replace(/\r\n/g, '\n');
@@ -125,6 +125,7 @@ export function validatePlan(text, { maxSteps, taskText }) {
     else if (!f[k].trim()) errors.push(`${name} is empty`);
     if (f[`${k}#dup`]) errors.push(`${name} appears more than once`);
   }
+  if (f.door?.trim() && !/^\**\s*(?:one-way|two-way)\b/i.test(f.door.trim())) errors.push('Door must start with "one-way" or "two-way"');
   const steps = numbered(f.steps).length;
   if (!Number.isInteger(maxSteps)) errors.push('--max-steps must be an integer');
   else if (steps < 1 || steps > maxSteps) errors.push(`Steps has ${steps} numbered items, must be 1..${maxSteps}`);

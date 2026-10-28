@@ -27,12 +27,15 @@ Return only the plan, exactly in this format and nothing before or after it:
 <!-- jstack:plan -->
 ## Plan
 **Goal**: <one sentence>
-**Files**: <paths to create or change>
+**Files**: <`path` for every file to create or change, tests included>
 **Tests first**:
 - <test name>: <acceptance criterion it proves>
 **Steps**:
 1. <...>
 **Risks**: <...>
+**Door**: <two-way | one-way>
+**New dependencies**: <None | what and why>
+**Existing tests changed**: <None | `paths`>
 **Out of scope**: <...>
 ```
 
@@ -41,4 +44,6 @@ Rules:
 - Every acceptance criterion maps to a named test in "Tests first", one bullet each.
 - Be concrete (real paths, function names, test names). Do not guess at files you have not read.
 - Under Risks, mark anything that is a one-way door (migrations, public API changes, deletions), and any acceptance criterion the verifier will need a human for (credentials, external services).
+- Files and Existing tests changed are a contract: Prove fails a PR that changes anything else. List every file, in backticks.
+- Door is one-way when a revert would not fully undo the change (contract definition); doubt makes it one-way.
 - Out of scope lists tempting neighbours the task must not touch.

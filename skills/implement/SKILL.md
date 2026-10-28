@@ -8,7 +8,7 @@ model: sonnet
 
 # Implement
 
-Produce the change for one **task**: first a **plan** the human approves, then a branch and PR built test-first. Read `<jstack root>/reference/contract.md` first (`<jstack root>` is two directories above this skill's base directory).
+Produce the change for one **task**: first a **plan** the human approves (or the charter clears), then a branch and PR built test-first. Read `<jstack root>/reference/contract.md` first (`<jstack root>` is two directories above this skill's base directory).
 
 The task is: $ARGUMENTS
 
@@ -22,7 +22,7 @@ node <jstack root>/scripts/github.mjs state --task <task>
 Then follow the one file this state leads to, in this skill's directory:
 
 - `ready` → [plan.md](plan.md)
-- `planned` with `feedback` from `github.mjs plan --task <task>` → [plan.md](plan.md). Without feedback: the plan awaits the human, who comments feedback or adds `<prefix>: approved`. Stop.
+- `planned` with `feedback` from `github.mjs plan --task <task>` → [plan.md](plan.md). Without feedback: the plan awaits the human, who comments feedback or adds `<prefix>: approved`. Quote `charter.reasons` when present. Stop.
 - `approved` → [build.md](build.md)
 - `implementing`, by `github.mjs pr --task <task>`:
   - no PR: an earlier build stopped midway → [build.md](build.md), resuming
