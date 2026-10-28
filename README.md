@@ -12,7 +12,7 @@ Status: v0, all phase skills drafted, not yet run end to end.
 |---|---|---|---|
 | `/jstack:intent <idea>` | Intent | a rough idea | intent issue, after you confirm it |
 | `/jstack:shape #<intent>` | Shape | intent issue | spec issue + task sub-issues, after you confirm the list |
-| `/jstack:implement #<task>` | Implement | task issue | plan comment; after you add `state: approved`, a PR built test-first |
+| `/jstack:implement #<task>` | Implement | task issue | plan comment; after you add `state: approved` (or the charter clears it), a PR built test-first |
 | `/jstack:prove #<task>` | Prove | task + PR | verdict comment from checks, reviewer, verifier and security reviewer |
 | `/jstack:ship #<task>` | Ship | proven PR | merged after you say "merge", then deployed |
 
@@ -30,6 +30,8 @@ checks:
   - npm test
 labels:
   prefix: state   # task labels read "state: approved"; rename to fit your repo
+autonomy:
+  plan: lit       # dark: plans that fit the charter build without your approval
 ```
 
 `node scripts/config.mjs` prints every key with its default.

@@ -7,6 +7,23 @@ import { defaultExec, emit, firstLine, isMain, makeCtx, parseArgs } from './lib.
 /** Globs no phase may ever edit, whatever the config says. */
 export const BUILTIN_PROTECTED = ['.jstack/**'];
 
+/** Paths that always need a human, on top of protected_paths and human_paths. Matched case-insensitively. */
+export const DEFAULT_HUMAN_PATHS = [
+  // dependency manifests and lockfiles
+  '**/package.json', '**/package-lock.json', '**/npm-shrinkwrap.json', '**/yarn.lock', '**/pnpm-lock.yaml',
+  '**/bun.lock*', '**/requirements*.txt', '**/pyproject.toml', '**/poetry.lock', '**/Pipfile*',
+  '**/go.mod', '**/go.sum', '**/Cargo.toml', '**/Cargo.lock', '**/Gemfile*', '**/*.gemspec',
+  '**/pom.xml', '**/build.gradle*', '**/composer.*',
+  // migrations
+  '**/*migrat*', '**/*migrat*/**',
+  // auth, security, secrets, payments
+  '**/*auth*', '**/*auth*/**', '**/*security*', '**/*security*/**', '**/*secret*', '**/*secret*/**',
+  '**/*payment*', '**/*payment*/**', '**/*billing*', '**/*billing*/**', '**/.env*',
+  // infra, CI and the factory's own config
+  '.github/**', '.jstack/**', '**/Dockerfile*', '**/docker-compose*', '**/*.tf', '**/infra/**',
+  '**/terraform/**', '**/k8s/**', '**/helm/**',
+];
+
 const MODELS = ['haiku', 'sonnet', 'opus'];
 const int = (min, def) => ({ type: 'int', min, def });
 const str = (def = null) => ({ type: 'string', def });
@@ -25,7 +42,13 @@ export const SCHEMA = {
     keys: { max_retries: int(0, 3), max_plan_steps: int(1, 10), check_timeout_minutes: int(1, 15), max_open_prs: int(1, 1) },
   },
   ship: { kind: 'object', keys: { deploy_workflow: str() } },
-  autonomy: { kind: 'object', keys: { ship_two_way: oneOf(['lit', 'dark'], 'lit'), max_lines: int(0, 200) } },
+  autonomy: {
+    kind: 'object',
+    keys: {
+      ship_two_way: oneOf(['lit', 'dark'], 'lit'), max_lines: int(0, 200),
+      plan: oneOf(['lit', 'dark'], 'lit'), plan_max_size: oneOf(['XS', 'S', 'M'], 'S'),
+    },
+  },
   human_paths: { kind: 'list' },
   labels: { kind: 'object', keys: { prefix: word('state') } },
   models: {

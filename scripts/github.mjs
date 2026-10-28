@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // GitHub state machine for jstack: labels, task state, approval, plans, PRs, verdicts, deploys.
 // Run from the target repo. Prints one JSON object; exits 0 iff ok. Only trusted authors count.
+import { charterReasons, driftReasons } from './charter.mjs';
 import { loadConfig } from './config.mjs';
 import { emit, firstLine, isMain, makeCtx, parseArgs, sleep as realSleep, toInt } from './lib.mjs';
 
@@ -10,8 +11,8 @@ export const DEFAULT_PREFIX = 'state';
 /** Task states, in label order, with color and meaning. */
 const STATE_TABLE = [
   ['ready', 'C5DEF5', 'Task cut, no plan yet'],
-  ['planned', 'FBCA04', 'Plan posted, waiting for human approval'],
-  ['approved', '0E8A16', 'Plan approved (human only)'],
+  ['planned', 'FBCA04', 'Plan posted, waiting for approval'],
+  ['approved', '0E8A16', 'Plan approved by a human'],
   ['implementing', 'D93F0B', 'Being implemented'],
   ['proving', 'BFD4F2', 'PR open, under Prove'],
   ['landed', 'C2E0C6', 'Merged, not yet deployed'],
@@ -182,8 +183,15 @@ export function state(ctx, n) {
     if (t.reason) return { ...out, reason: t.reason };
     if (t.candidate === 'approved') {
       const a = approval(ctx, n);
-      if (!a.valid) return { ...out, state: 'planned', approval: a, reason: `approval not valid: ${a.reason}` };
-      return { ...out, ok: true, approval: a };
+      if (a.valid) return { ...out, ok: true, approval: a };
+      const c = charter(ctx, t);
+      if (c.reasons.length === 0) return { ...out, ok: true, approval: c.approval };
+      return { ...out, state: 'planned', approval: a, reason: `approval not valid: ${a.reason}` };
+    }
+    if (t.candidate === 'planned' && ctx.config?.autonomy?.plan === 'dark') {
+      const c = charter(ctx, t);
+      if (c.reasons.length === 0) return { ...out, ok: true, state: 'approved', approval: c.approval };
+      return { ...out, ok: true, charter: { reasons: c.reasons } };
     }
     return { ...out, ok: true };
   } catch (err) {
@@ -215,16 +223,27 @@ export function move(ctx, n, from, to, phase = null) {
   }
 }
 
+/** Newest trusted plan and the trusted unmarked feedback after it. Pure. */
+export function planAndFeedback(comments, isTrusted) {
+  const p = newestTrusted(comments, isTrusted, (c) => c.body.includes(PLAN_MARKER));
+  const since = p ? time(p.createdAt) : -Infinity;
+  const feedback = trustedComments(comments, isTrusted, (c) => !hasAnyMarker(c.body) && time(c.createdAt) > since)
+    .map(({ author, createdAt, body, url }) => ({ author, createdAt, body, url }));
+  return { plan: p ? { url: p.url, createdAt: p.createdAt, author: p.author, body: p.body } : null, feedback };
+}
+
+/** Charter check for a task read by readTask: {reasons, approval}. Empty reasons: the charter approves the plan. */
+function charter(ctx, t) {
+  const { plan: p, feedback } = planAndFeedback(t.issue.comments ?? [], ctx.isTrusted);
+  const reasons = charterReasons({ config: ctx.config, task: { size: t.task.size, body: t.issue.body }, plan: p, feedback });
+  return { reasons, approval: { valid: true, by: 'charter', at: p?.createdAt ?? null, planUrl: p?.url ?? null, reason: null } };
+}
+
 /** `plan --task N`: newest trusted plan and the trusted unmarked feedback after it. */
 export function plan(ctx, n) {
   try {
     const issue = ctx.ghJson(['issue', 'view', String(n), '--json', 'comments']);
-    const comments = issue.comments ?? [];
-    const p = newestTrusted(comments, ctx.isTrusted, (c) => c.body.includes(PLAN_MARKER));
-    const since = p ? time(p.createdAt) : -Infinity;
-    const feedback = trustedComments(comments, ctx.isTrusted, (c) => !hasAnyMarker(c.body) && time(c.createdAt) > since)
-      .map(({ author, createdAt, body, url }) => ({ author, createdAt, body, url }));
-    return { ok: true, plan: p ? { url: p.url, createdAt: p.createdAt, author: p.author, body: p.body } : null, feedback };
+    return { ok: true, ...planAndFeedback(issue.comments ?? [], ctx.isTrusted) };
   } catch (err) {
     return { ok: false, plan: null, feedback: [], reason: `could not read comments: ${firstLine(err)}` };
   }
@@ -285,6 +304,22 @@ export function verdict(ctx, p, n = null) {
   }
 }
 
+/** `drift --task N --pr P --sha S`: files the PR changed outside its plan. ok means it was read; clean means no drift. */
+export function drift(ctx, n, p, sha) {
+  const fail = (reason) => ({ ok: false, clean: false, reasons: [], reason });
+  try {
+    const head = ctx.ghJson(['pr', 'view', String(p), '--json', 'headRefOid']).headRefOid;
+    if (String(head).toLowerCase() !== String(sha).toLowerCase()) return fail('head moved');
+    const { plan: pl } = plan(ctx, n);
+    if (!pl) return fail('no trusted plan');
+    const files = ctx.ghPaginated(`repos/{owner}/{repo}/pulls/${p}/files`);
+    const reasons = driftReasons(pl.body, files);
+    return { ok: true, clean: reasons.length === 0, reasons, planUrl: pl.url };
+  } catch (err) {
+    return fail(`could not read the PR: ${firstLine(err)}`);
+  }
+}
+
 /** `deploy --workflow W --sha S`: wait for the deploy run of a commit. */
 export async function deploy(ctx, { workflow, sha, timeoutSec = 540, appearSec = 300, sleep = realSleep, now = Date.now, pollMs = 15_000 }) {
   const t0 = now();
@@ -328,7 +363,7 @@ export function trusted(ctx, login) {
   return { ok: ['admin', 'maintain', 'write'].includes(permission), permission };
 }
 
-const USAGE = 'usage: github.mjs labels | state --task N | approval --task N | plan --task N | move --task N --from X --to Y [--phase P] | pr --task N [--state open|merged|all] | openprs | verdict --pr P [--task N] | deploy --workflow W --sha S [--timeout SEC] [--appear SEC] | trusted --user L';
+const USAGE = 'usage: github.mjs labels | state --task N | approval --task N | plan --task N | drift --task N --pr P --sha S | move --task N --from X --to Y [--phase P] | pr --task N [--state open|merged|all] | openprs | verdict --pr P [--task N] | deploy --workflow W --sha S [--timeout SEC] [--appear SEC] | trusted --user L';
 
 /** Dispatch a CLI command. Returns a result object with `ok`. */
 export async function main(argv, ctx = makeCtx()) {
@@ -341,12 +376,18 @@ export async function main(argv, ctx = makeCtx()) {
       const cfg = loadConfig({ cwd: ctx.cwd, exec: ctx.exec });
       if (!cfg.ok) return { ok: false, reason: `config: ${cfg.errors.join('; ')}` };
       ctx.prefix = cfg.config.labels.prefix;
+      ctx.config = cfg.config;
     }
     switch (cmd) {
       case 'labels': return labels(ctx);
       case 'state': return state(ctx, need(task, 'task'));
       case 'approval': return approval(ctx, need(task, 'task'));
       case 'plan': return plan(ctx, need(task, 'task'));
+      case 'drift': {
+        const sha = need(a.sha, 'sha');
+        if (!/^[0-9a-f]{40}$/i.test(sha)) throw new Error('bad --sha: full 40-hex sha');
+        return drift(ctx, need(task, 'task'), need(toInt(a.pr), 'pr'), sha);
+      }
       case 'move': return move(ctx, need(task, 'task'), need(a.from, 'from'), need(a.to, 'to'), typeof a.phase === 'string' ? a.phase : null);
       case 'pr': return pr(ctx, need(task, 'task'), typeof a.state === 'string' ? a.state : 'open');
       case 'openprs': return openprs(ctx);

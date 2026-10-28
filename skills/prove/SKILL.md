@@ -27,7 +27,9 @@ node <jstack root>/scripts/checks.mjs --cwd <tmp dir>
 git worktree remove --force <tmp dir>
 ```
 
-Checks: `pass: false` is FAIL (quote failing commands and `outputTail`); a `(config)` result or a crash is ERROR.
+Then the plan drift: `node <jstack root>/scripts/github.mjs drift --task <task> --pr <pr> --sha <SHA>`.
+
+Checks: `pass: false` is FAIL (quote failing commands and `outputTail`); `clean: false` from drift is FAIL (quote its `reasons`); a `(config)` result, `ok: false` from drift, or a crash is ERROR.
 
 Then, in one message, start `jstack:reviewer`, `jstack:verifier` and `jstack:security-reviewer`. Each gets only the task, PR, SHA and `<jstack root>`: no summary, opinion or earlier verdict.
 

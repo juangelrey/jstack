@@ -220,6 +220,62 @@ test('pr / openprs filter candidates', async () => {
   assert.deepEqual(r.prs, [{ number: 1, task: 3 }, { number: 4, task: 5 }]);
 });
 
+const DARK = { 'ls-tree': '.jstack/config.yml\n', 'show origin/main:.jstack/config.yml': 'version: 1\nautonomy:\n  plan: dark\n' };
+const CHARTER_TASK = '<!-- jstack:task spec=#2 size=S -->\n## Description\nx\n\n## Acceptance criteria\n- [ ] greets\n\n## Verification steps\n1. run\n\n## Dependencies\nNone\n';
+const CHARTER_PLAN = '<!-- jstack:plan -->\n## Plan\n**Goal**: g\n**Files**: `src/greet.js`, `test/greet.test.js`\n**Tests first**:\n- greets: greets\n**Steps**:\n1. a\n**Risks**: none\n**Door**: two-way\n**New dependencies**: None\n**Existing tests changed**: None\n**Out of scope**: x\n';
+const charterIssue = (comments, labels = ['state: planned']) => issue(labels, { body: CHARTER_TASK, comments });
+const ghComment = (m, body, login = 'alice') => ({ author: { login }, body, createdAt: at(m), url: `c${m}` });
+
+test('state: a dark charter approves a planned task whose plan fits it', async () => {
+  let r = await main(['state', '--task', '9'], fake({ ...DARK, 'issue view 9': charterIssue([ghComment(1, CHARTER_PLAN)]) }));
+  assert.equal(r.ok, true);
+  assert.equal(r.state, 'approved');
+  assert.equal(r.approval.by, 'charter');
+  assert.equal(r.approval.planUrl, 'c1');
+  // one-way plan: stays planned, with reasons
+  r = await main(['state', '--task', '9'], fake({ ...DARK, 'issue view 9': charterIssue([ghComment(1, CHARTER_PLAN.replace('two-way', 'one-way'))]) }));
+  assert.equal(r.state, 'planned');
+  assert.match(r.charter.reasons.join(), /one-way/);
+  // feedback after the plan, or an untrusted plan: stays planned
+  r = await main(['state', '--task', '9'], fake({ ...DARK, 'issue view 9': charterIssue([ghComment(1, CHARTER_PLAN), ghComment(2, 'rename it')]) }));
+  assert.equal(r.state, 'planned');
+  r = await main(['state', '--task', '9'], fake({ ...DARK, 'issue view 9': charterIssue([ghComment(1, CHARTER_PLAN, 'mallory')]) }));
+  assert.match(r.charter.reasons.join(), /no trusted plan/);
+  // lit (default): no charter at all
+  r = await main(['state', '--task', '9'], fake({ 'issue view 9': charterIssue([ghComment(1, CHARTER_PLAN)]) }));
+  assert.equal(r.state, 'planned');
+  assert.equal(r.charter, undefined);
+});
+
+test('move: a charter-approved task moves to implementing', async () => {
+  const calls = [];
+  let labels = ['state: planned'];
+  const ctx = fake({
+    ...DARK,
+    'issue view 9': () => charterIssue([ghComment(1, CHARTER_PLAN)], labels),
+    'issue edit 9': () => { labels = ['state: implementing']; return ''; },
+  }, calls);
+  const r = await main(['move', '--task', '9', '--from', 'approved', '--to', 'implementing'], ctx);
+  assert.equal(r.ok, true, r.reason);
+  assert.deepEqual(calls.filter((c) => c.startsWith('gh issue edit')), ['gh issue edit 9 --remove-label state: planned --add-label state: implementing']);
+});
+
+test('drift: compares the PR files with the plan, pinned to the head', async () => {
+  const routes = (files, head = SHA) => fake({
+    'pr view 5 --json headRefOid': { headRefOid: head },
+    'issue view 9 --json comments': { comments: [ghComment(1, CHARTER_PLAN)] },
+    'api repos/{owner}/{repo}/pulls/5/files': files,
+  });
+  let r = await main(['drift', '--task', '9', '--pr', '5', '--sha', SHA], routes([{ filename: 'src/greet.js', status: 'modified' }]));
+  assert.deepEqual([r.ok, r.clean, r.reasons], [true, true, []]);
+  r = await main(['drift', '--task', '9', '--pr', '5', '--sha', SHA], routes([{ filename: 'src/other.js', status: 'added' }]));
+  assert.deepEqual([r.ok, r.clean], [true, false]);
+  assert.match(r.reasons.join(), /src\/other.js/);
+  r = await main(['drift', '--task', '9', '--pr', '5', '--sha', SHA], routes([], 'b'.repeat(40)));
+  assert.deepEqual([r.ok, r.reason], [false, 'head moved']);
+  assert.equal((await main(['drift', '--task', '9', '--pr', '5', '--sha', 'abc'], routes([]))).ok, false);
+});
+
 test('plan returns newest trusted plan and feedback after it', async () => {
   const c = (m, login, body) => ({ author: { login }, body, createdAt: at(m), url: `c${m}` });
   const comments = [c(1, 'alice', 'early feedback'), c(2, 'alice', '<!-- jstack:plan -->\nP'), c(3, 'mallory', 'x'), c(4, 'bob', 'change step 2'), c(5, 'alice', '<!-- jstack:blocked phase=x -->')];

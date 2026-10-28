@@ -3,27 +3,10 @@
 // Fails closed: anything it cannot evaluate makes the PR ineligible. Only trusted authors count.
 import { resolve } from 'node:path';
 import { defaultExec, emit, firstLine, isMain, makeCtx, parseArgs, sleep as realSleep, toInt } from './lib.mjs';
-import { globToRegExp, loadConfig } from './config.mjs';
+import { DEFAULT_HUMAN_PATHS, globToRegExp, loadConfig } from './config.mjs';
 import { parsePrMarker, parseVerdict, trustedComments } from './github.mjs';
 
-export { globToRegExp } from './config.mjs';
-
-/** Paths that always need a human, on top of protected_paths and human_paths. Matched case-insensitively. */
-export const DEFAULT_HUMAN_PATHS = [
-  // dependency manifests and lockfiles
-  '**/package.json', '**/package-lock.json', '**/npm-shrinkwrap.json', '**/yarn.lock', '**/pnpm-lock.yaml',
-  '**/bun.lock*', '**/requirements*.txt', '**/pyproject.toml', '**/poetry.lock', '**/Pipfile*',
-  '**/go.mod', '**/go.sum', '**/Cargo.toml', '**/Cargo.lock', '**/Gemfile*', '**/*.gemspec',
-  '**/pom.xml', '**/build.gradle*', '**/composer.*',
-  // migrations
-  '**/*migrat*', '**/*migrat*/**',
-  // auth, security, secrets, payments
-  '**/*auth*', '**/*auth*/**', '**/*security*', '**/*security*/**', '**/*secret*', '**/*secret*/**',
-  '**/*payment*', '**/*payment*/**', '**/*billing*', '**/*billing*/**', '**/.env*',
-  // infra, CI and the factory's own config
-  '.github/**', '.jstack/**', '**/Dockerfile*', '**/docker-compose*', '**/*.tf', '**/infra/**',
-  '**/terraform/**', '**/k8s/**', '**/helm/**',
-];
+export { DEFAULT_HUMAN_PATHS, globToRegExp } from './config.mjs';
 
 export const DEFAULT_MAX_LINES = 200;
 
